@@ -31,39 +31,30 @@ return packer.startup(function(use)
 	-- packer can manage itself
 	use("wbthomason/packer.nvim")
 
-	use("nvim-lua/plenary.nvim") -- lua functions that many plugins use
-
+	-- treesitter configuration
 	use({
-		"folke/tokyonight.nvim",
-		as = "tokyonight",
-		config = function()
-			vim.cmd("colorscheme tokyonight")
+		"nvim-treesitter/nvim-treesitter",
+		run = function()
+			local ts_update = require("nvim-treesitter.install").update({ with_sync = true })
+			ts_update()
 		end,
 	})
 
-	use("christoomey/vim-tmux-navigator") -- tmux & split window navigation
-
-	use("szw/vim-maximizer") -- maximizes and restores current window
-
-	-- essential plugins
-	use("tpope/vim-surround") -- add, delete, change surroundings (it's awesome)
-	use("inkarkat/vim-ReplaceWithRegister") -- replace with register contents using motion (gr + motion)
-
-	-- commenting with gc
-	use("numToStr/Comment.nvim")
+	-- lua function many plugins use
+	use("nvim-lua/plenary.nvim")
 
 	-- file explorer
 	use("nvim-tree/nvim-tree.lua")
+
+	-- fuzzy finding w/ telescope
+	use({ "nvim-telescope/telescope-fzf-native.nvim", run = "make" }) -- dependency for better sorting performance
+	use({ "nvim-telescope/telescope.nvim", branch = "0.1.x" }) -- fuzzy finder
 
 	-- vs-code like icons
 	use("nvim-tree/nvim-web-devicons")
 
 	-- statusline
 	use("nvim-lualine/lualine.nvim")
-
-	-- fuzzy finding w/ telescope
-	use({ "nvim-telescope/telescope-fzf-native.nvim", run = "make" }) -- dependency for better sorting performance
-	use({ "nvim-telescope/telescope.nvim", branch = "0.1.x" }) -- fuzzy finder
 
 	-- autocompletion
 	use("hrsh7th/nvim-cmp") -- completion plugin
@@ -79,9 +70,26 @@ return packer.startup(function(use)
 	use("williamboman/mason.nvim") -- in charge of managing lsp servers, linters & formatters
 	use("williamboman/mason-lspconfig.nvim") -- bridges gap b/w mason & lspconfig
 
+	--use({
+	--	"folke/tokyonight.nvim",
+	--	as = "tokyonight",
+	--	config = function()
+	--		vim.cmd("colorscheme tokyonight")
+	--	end,
+	--})
+
+	use("christoomey/vim-tmux-navigator") -- tmux & split window navigation
+	use("szw/vim-maximizer") -- maximizes and restores current window
+
+	-- essential plugins
+	use("tpope/vim-surround") -- add, delete, change surroundings (it's awesome)
+	use("inkarkat/vim-ReplaceWithRegister") -- replace with register contents using motion (gr + motion)
+
+	-- commenting with gc
+	use("numToStr/Comment.nvim")
+
 	-- git diff
 	use("sindrets/diffview.nvim")
-	--use({ "sindrets/diffview.nvim", requires = "nvim-lua/plenary.nvim" })
 
 	-- configuring lsp servers
 	use("neovim/nvim-lspconfig") -- easily configure language servers
@@ -94,18 +102,8 @@ return packer.startup(function(use)
 	use("jose-elias-alvarez/null-ls.nvim") -- configure formatters & linters
 	use("jayp0521/mason-null-ls.nvim") -- bridges gap b/w mason & null
 
-	-- treesitter configuration
-	use({
-		"nvim-treesitter/nvim-treesitter",
-		run = function()
-			local ts_update = require("nvim-treesitter.install").update({ with_sync = true })
-			ts_update()
-		end,
-	})
-
-	use("folke/tokyonight.nvim") -- colorscheme
+	--use("folke/tokyonight.nvim") -- colorscheme
 	use("folke/zen-mode.nvim") -- zen mode
-	use("github/copilot.vim") -- copilot snippets
 	use("tpope/vim-fugitive") -- vim git wrapper
 	use("lukas-reineke/indent-blankline.nvim") -- Add indentation guides even on blank lines
 	use("tpope/vim-rhubarb")
