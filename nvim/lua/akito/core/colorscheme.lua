@@ -1,7 +1,7 @@
 require("tokyonight").setup({
 	-- your configuration comes here
 	-- or leave it empty to use the default settings
-	style = "moon", -- The theme comes in three styles, `storm`, `moon`, a darker variant `night` and `day`
+	style = "night", -- The theme comes in three styles, `storm`, `moon`, a darker variant `night` and `day`
 	light_style = "day", -- The theme is used when the background is set to light
 	transparent = true, -- Enable this to disable setting the background color
 	terminal_colors = true, -- Configure the colors used when opening a `:terminal` in Neovim
@@ -38,7 +38,7 @@ require("tokyonight").setup({
 
 -- set colorscheme to nightfly with protected call
 -- in case it isn't installed
-local status, _ = pcall(vim.cmd, "colorscheme tokyonight-moon")
+local status, _ = pcall(vim.cmd, "colorscheme tokyonight-storm")
 if not status then
 	print("Colorscheme not found!") -- print error if colorscheme not installed
 	return

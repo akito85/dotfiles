@@ -12,10 +12,11 @@
 -- require('keys')      -- Keymaps
 -- require('plug')      -- Plugins
 --
+
+require("akito.core.colorscheme")
 require("akito.plugins-setup")
 require("akito.core.options")
 require("akito.core.keymaps")
--- require("akito.core.colorscheme")
 require("akito.plugins.comment")
 require("akito.plugins.nvim-tree")
 require("akito.plugins.lualine")
