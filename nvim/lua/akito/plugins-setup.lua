@@ -70,14 +70,6 @@ return packer.startup(function(use)
 	use("williamboman/mason.nvim") -- in charge of managing lsp servers, linters & formatters
 	use("williamboman/mason-lspconfig.nvim") -- bridges gap b/w mason & lspconfig
 
-	-- use({
-	-- "folke/tokyonight.nvim",
-	-- as = "tokyonight",
-	--	config = function()
-	--		vim.cmd("colorscheme tokyonight")
-	--	end,
-	-- })
-
 	use("christoomey/vim-tmux-navigator") -- tmux & split window navigation
 	use("szw/vim-maximizer") -- maximizes and restores current window
 
@@ -102,7 +94,22 @@ return packer.startup(function(use)
 	use("jose-elias-alvarez/null-ls.nvim") -- configure formatters & linters
 	use("jayp0521/mason-null-ls.nvim") -- bridges gap b/w mason & null
 
-	use("folke/tokyonight.nvim") -- colorscheme
+	--use("folke/tokyonight.nvim") -- colorscheme
+	--use({
+	--	"kartikp10/noctis.nvim",
+	--	wants = "rktjmp/lush.nvim",
+	--	config = function()
+	--		vim.cmd("colorscheme noctis")
+	--	end,
+	--})
+	use({
+		"rose-pine/neovim",
+		as = "rose-pine",
+		config = function()
+			require("rose-pine").setup()
+			vim.cmd("colorscheme rose-pine")
+		end,
+	})
 	use("folke/zen-mode.nvim") -- zen mode
 	use("tpope/vim-fugitive") -- vim git wrapper
 	use("lukas-reineke/indent-blankline.nvim") -- Add indentation guides even on blank lines
