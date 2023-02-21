@@ -9,8 +9,8 @@
 
 configuration {
 	font:							"Iosevka Nerd Font 10";
-    show-icons:                     true;
-	icon-theme: 					"Papirus";
+    show-icons:                     false;
+	icon-theme: 					"BeautyLine";
     display-drun: 					"";
     drun-display-format:            "{name}";
     disable-history:                false;
