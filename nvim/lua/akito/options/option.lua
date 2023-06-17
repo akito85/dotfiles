@@ -1,33 +1,79 @@
---[[ opts.lua ]]
 local opt = vim.opt
 
--- [[ Context ]]
-opt.colorcolumn = '80'           -- str:  Show col for max line length
-opt.number = true                -- bool: Show line numbers
-opt.relativenumber = true        -- bool: Show relative line numbers
-opt.scrolloff = 4                -- int:  Min num lines of context
-opt.signcolumn = "yes"           -- str:  Show the sign column
+-- line numbers
+opt.relativenumber = true
+opt.number = true
 
--- [[ Filetypes ]]
-opt.encoding = 'utf8'            -- str:  String encoding to use
-opt.fileencoding = 'utf8'        -- str:  File encoding to use
+-- tabs & identation
+opt.tabstop = 4
+opt.softtabstop = 4
+opt.shiftwidth = 4
+opt.expandtab = true
+opt.autoindent = true
+opt.smartindent = true
 
--- [[ Theme ]]
-opt.syntax = "ON"                -- str:  Allow syntax highlighting
-opt.termguicolors = true         -- bool: If term supports ui color then enable
+-- disable swap file
+opt.swapfile = false
+opt.backup = false
 
--- [[ Search ]]
-opt.ignorecase = true            -- bool: Ignore case in search patterns
-opt.smartcase = true             -- bool: Override ignorecase if search contains capitals
-opt.incsearch = true             -- bool: Use incremental search
-opt.hlsearch = false             -- bool: Highlight search matches
+opt.undodir = os.getenv("HOME") .. "/.vim/undodir"
+opt.undofile = true
 
--- [[ Whitespace ]]
-opt.expandtab = true             -- bool: Use spaces instead of tabs
-opt.shiftwidth = 2               -- num:  Size of an indent
-opt.softtabstop = 2              -- num:  Number of spaces tabs count for in insert mode
-opt.tabstop = 2                  -- num:  Number of spaces tabs count for
+-- line wrapping
+opt.wrap = false
 
--- [[ Splits ]]
-opt.splitright = true            -- bool: Place new window to right of current one
-opt.splitbelow = true            -- bool: Place new window below the current one
+-- search settings
+opt.ignorecase = true
+opt.smartcase = true
+opt.hlsearch = false
+opt.incsearch = true
+
+-- cursor line
+opt.cursorline = true
+
+-- appearance
+opt.termguicolors = true
+opt.background = "dark"
+opt.signcolumn = "yes"
+
+-- backspace
+opt.backspace = "indent,eol,start"
+
+opt.scrolloff = 8
+opt.signcolumn = "yes"
+opt.isfname:append("@-@")
+opt.updatetime = 50
+--opt.colorcolumn = "80"
+
+-- clipboard
+opt.clipboard:append("unnamedplus")
+if vim.fn.has("wsl") == 1 then
+  vim.g.clipboard = {
+    name = "win32yank-wsl",
+    copy = {
+      ["+"] = "win32yank.exe -i --crlf",
+      ["*"] = "win32yank.exe -i --crlf",
+    },
+    paste = {
+      ["+"] = "win32yank.exe -o --lf",
+      ["*"] = "win32yank.exe -o --lf",
+    },
+    cache_enabled = 0,
+  }
+end
+
+-- split windows
+opt.splitright = true
+opt.splitbelow = true
+
+opt.iskeyword:append("-")
+
+opt.list = true
+opt.listchars:append("space:⋅")
+opt.listchars:append("eol:↴")
+
+require("indent_blankline").setup({
+	space_char_blankline = " ",
+	show_current_context = true,
+	show_current_context_start = true,
+})
