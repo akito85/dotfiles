@@ -1,3 +1,7 @@
+if vim.g.neovide then 
+    vim.o.guifont = "FiraCode Nerd Font Mono:h11"
+end
+
 local opt = vim.opt
 
 -- line numbers
