@@ -1,3 +1,7 @@
+if vim.g.neovide then 
+    vim.o.guifont = "FiraCode Nerd Font Mono:h11"
+end
+
 local opt = vim.opt
 
 -- line numbers
@@ -72,8 +76,8 @@ opt.list = true
 opt.listchars:append("space:⋅")
 opt.listchars:append("eol:↴")
 
-require("indent_blankline").setup({
-	space_char_blankline = " ",
-	show_current_context = true,
-	show_current_context_start = true,
-})
+--require("indent_blankline").setup({
+--	space_char_blankline = " ",
+--	show_current_context = true,
+--	show_current_context_start = true,
+--})
