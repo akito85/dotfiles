@@ -4,6 +4,9 @@ end
 
 local opt = vim.opt
 
+-- autoread
+opt.autoread = true
+
 -- line numbers
 opt.relativenumber = true
 opt.number = true
