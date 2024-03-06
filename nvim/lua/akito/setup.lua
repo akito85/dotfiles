@@ -108,13 +108,30 @@ return require('packer').startup(function(use)
   use "tpope/vim-fugitive"
 
   -- Surround
-  use 'tpope/vim-surround'
+  use "tpope/vim-surround"
 
   -- Repeat
-  use 'tpope/vim-repeat'
+  use "tpope/vim-repeat"
 
-  -- Multi cursor
-  use {'mg979/vim-visual-multi', branch = 'master'}
+  -- MULTI CURSOR
+  use({"mg979/vim-visual-multi", branch = "master"})
+  -- use({
+  --   "smoka7/multicursors.nvim",
+  --   event = "VeryLazy",
+  --   dependencies = {
+  --       'smoka7/hydra.nvim',
+  --   },
+  --   opts = {},
+  --   cmd = { 'MCstart', 'MCvisual', 'MCclear', 'MCpattern', 'MCvisualPattern', 'MCunderCursor' },
+  --   keys = {
+  --           {
+  --               mode = { 'v', 'n' },
+  --               '<Leader>m',
+  --               '<cmd>MCstart<cr>',
+  --               desc = 'Create a selection for selected text or word under the cursor',
+  --           },
+  --       },
+  -- })
 
   -- Status line lualine
   use "nvim-lualine/lualine.nvim"
