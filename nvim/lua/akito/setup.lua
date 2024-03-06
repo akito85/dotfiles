@@ -107,6 +107,15 @@ return require('packer').startup(function(use)
   use "lewis6991/gitsigns.nvim"
   use "tpope/vim-fugitive"
 
+  -- Surround
+  use 'tpope/vim-surround'
+
+  -- Repeat
+  use 'tpope/vim-repeat'
+
+  -- Multi cursor
+  use {'mg979/vim-visual-multi', branch = 'master'}
+
   -- Status line lualine
   use "nvim-lualine/lualine.nvim"
 
@@ -116,6 +125,14 @@ return require('packer').startup(function(use)
   -- Auto closing parenthesis, brackets, tags, etc.
   use("windwp/nvim-autopairs")
   use({ "windwp/nvim-ts-autotag", after = "nvim-treesitter" })
+
+  -- Comment block / line
+  use {
+    'numToStr/Comment.nvim',
+    config = function()
+        require('Comment').setup()
+    end
+  }
 
 end
 )

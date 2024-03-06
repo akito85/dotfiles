@@ -1,6 +1,9 @@
 local cmp = require("cmp")
 
 cmp.setup({
+  preselect = cmp.PreselectMode.None,
+  completion = { completeopt = "menu,menuone,noselect" },
+
   snippet = {
     -- REQUIRED - you must specify a snippet engine
     expand = function(args)
