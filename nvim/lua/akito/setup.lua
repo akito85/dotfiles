@@ -143,6 +143,16 @@ return require('packer').startup(function(use)
   use("windwp/nvim-autopairs")
   use({ "windwp/nvim-ts-autotag", after = "nvim-treesitter" })
 
+  -- Toggle terminal
+  use {
+    "akinsho/toggleterm.nvim", tag = '*', config = function()
+        require('toggleterm').setup({
+          open_mapping = '<C-g>',
+          direction = 'float',
+          shade_terminals = true
+        })
+    end
+  }
   -- Comment block / line
   use {
     'numToStr/Comment.nvim',
