@@ -161,5 +161,13 @@ return require('packer').startup(function(use)
     end
   }
 
+  -- Centered : commandline
+  use {
+    'VonHeikemen/fine-cmdline.nvim',
+    requires = {
+      {'MunifTanjim/nui.nvim'}
+    }
+  }
+
 end
 )

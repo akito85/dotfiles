@@ -85,3 +85,4 @@ opt.listchars:append("eol:↴")
 --	show_current_context_start = true,
 --})
 
+vim.api.nvim_set_keymap('n', ':', '<cmd>FineCmdline<CR>', {noremap = true})
