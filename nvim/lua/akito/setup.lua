@@ -1,13 +1,13 @@
 -- auto install packer if not installed
 local ensure_packer = function()
-	local fn = vim.fn
-	local install_path = fn.stdpath("data") .. "/site/pack/packer/start/packer.nvim"
-	if fn.empty(fn.glob(install_path)) > 0 then
-		fn.system({ "git", "clone", "--depth", "1", "https://github.com/wbthomason/packer.nvim", install_path })
-		vim.cmd([[packadd packer.nvim]])
-		return true
-	end
-	return false
+    local fn = vim.fn
+    local install_path = fn.stdpath("data") .. "/site/pack/packer/start/packer.nvim"
+    if fn.empty(fn.glob(install_path)) > 0 then
+        fn.system({ "git", "clone", "--depth", "1", "https://github.com/wbthomason/packer.nvim", install_path })
+        vim.cmd([[packadd packer.nvim]])
+        return true
+    end
+    return false
 end
 local packer_bootstrap = ensure_packer() -- true if packer was just installed
 
@@ -23,11 +23,11 @@ vim.cmd([[
 -- import packer safely
 local status, packer = pcall(require, "packer")
 if not status then
-	return
+    return
 end
 
 -- plugins installation
-return require('packer').startup(function(use)
+return require("packer").startup(function(use)
   -- Neovim package management
   use "wbthomason/packer.nvim"
 
@@ -62,10 +62,10 @@ return require('packer').startup(function(use)
 
   -- Window pickers
   use({
-    's1n7ax/nvim-window-picker',
-    tag = 'v1.*',
+    "s1n7ax/nvim-window-picker",
+    tag = "v1.*",
     config = function()
-        require'window-picker'.setup()
+        require"window-picker".setup()
     end,
   })
 
@@ -88,7 +88,7 @@ return require('packer').startup(function(use)
     }
   })
 
-  use("jose-elias-alvarez/null-ls.nvim")
+  use({"stevearc/conform.nvim"})
   use("jayp0521/mason-null-ls.nvim")
 
   -- Autocompletion
@@ -119,16 +119,16 @@ return require('packer').startup(function(use)
   --   "smoka7/multicursors.nvim",
   --   event = "VeryLazy",
   --   dependencies = {
-  --       'smoka7/hydra.nvim',
+  --       "smoka7/hydra.nvim",
   --   },
   --   opts = {},
-  --   cmd = { 'MCstart', 'MCvisual', 'MCclear', 'MCpattern', 'MCvisualPattern', 'MCunderCursor' },
+  --   cmd = { "MCstart", "MCvisual", "MCclear", "MCpattern", "MCvisualPattern", "MCunderCursor" },
   --   keys = {
   --           {
-  --               mode = { 'v', 'n' },
-  --               '<Leader>m',
-  --               '<cmd>MCstart<cr>',
-  --               desc = 'Create a selection for selected text or word under the cursor',
+  --               mode = { "v", "n" },
+  --               "<Leader>m",
+  --               "<cmd>MCstart<cr>",
+  --               desc = "Create a selection for selected text or word under the cursor",
   --           },
   --       },
   -- })
@@ -145,29 +145,43 @@ return require('packer').startup(function(use)
 
   -- Toggle terminal
   use {
-    "akinsho/toggleterm.nvim", tag = '*', config = function()
-        require('toggleterm').setup({
-          open_mapping = '<C-g>',
-          direction = 'float',
+    "akinsho/toggleterm.nvim", tag = "*", 
+    config = function()
+        require("toggleterm").setup({
+          open_mapping = "<C-g>",
+          direction = "float",
           shade_terminals = true
         })
     end
   }
   -- Comment block / line
   use {
-    'numToStr/Comment.nvim',
+    "numToStr/Comment.nvim",
     config = function()
-        require('Comment').setup()
+        require("Comment").setup()
     end
   }
 
   -- Centered : commandline
-  use {
-    'VonHeikemen/fine-cmdline.nvim',
-    requires = {
-      {'MunifTanjim/nui.nvim'}
-    }
-  }
+  -- use {
+  --   "VonHeikemen/fine-cmdline.nvim",
+  --   requires = {
+  --     {"MunifTanjim/nui.nvim"}
+  --   }
+  -- }
 
+  -- Make current buffer centered
+    use {
+        "shortcuts/no-neck-pain.nvim",
+        config = function()
+            require("no-neck-pain").setup({
+                buffers = {
+                    left = {
+                        enabled = false,
+                    },
+                },
+            })
+        end
+    }
 end
 )

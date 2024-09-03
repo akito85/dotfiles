@@ -80,9 +80,15 @@ opt.listchars:append("space:⋅")
 opt.listchars:append("eol:↴")
 
 --require("indent_blankline").setup({
---	space_char_blankline = " ",
---	show_current_context = true,
---	show_current_context_start = true,
+--  space_char_blankline = " ",
+--  show_current_context = true,
+--  show_current_context_start = true,
 --})
 
-vim.api.nvim_set_keymap('n', ':', '<cmd>FineCmdline<CR>', {noremap = true})
+-- vim.api.nvim_set_keymap('n', ':', '<cmd>FineCmdline<CR>', {noremap = true})
+
+vim.api.nvim_create_autocmd("VimEnter", {
+    callback = function()
+        vim.cmd("NoNeckPain")
+    end,
+})
