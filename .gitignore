@@ -1,2 +1,4 @@
 ./nvim/plugin/packer_compiled.lua
-./nvim/plugin
+nvim/plugin/packer_compiled.lua
+./nvim/plugin/*.lua
+nvim/plugin/*.lua
