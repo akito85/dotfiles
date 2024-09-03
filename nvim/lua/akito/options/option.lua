@@ -1,5 +1,6 @@
 if vim.g.neovide then 
     vim.o.guifont = "FiraCode Nerd Font Mono:h11"
+    vim.g.neovide_cursor_vfx_mode = "railgun"
 end
 
 local opt = vim.opt
@@ -75,9 +76,9 @@ opt.splitbelow = true
 
 opt.iskeyword:append("-")
 
-opt.list = true
-opt.listchars:append("space:⋅")
-opt.listchars:append("eol:↴")
+-- opt.list = true
+-- opt.listchars:append("space:⋅")
+-- opt.listchars:append("eol:↴")
 
 --require("indent_blankline").setup({
 --  space_char_blankline = " ",

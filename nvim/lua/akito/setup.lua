@@ -88,8 +88,40 @@ return require("packer").startup(function(use)
     }
   })
 
+  -- Formatter
   use({"stevearc/conform.nvim"})
   use("jayp0521/mason-null-ls.nvim")
+
+  -- Blank line, chunk
+  use({
+    "shellRaining/hlchunk.nvim",
+    event = { "BufReadPre", "BufNewFile" },
+    config = function()
+      require("hlchunk").setup({
+        chunk = {
+          enable = true
+        },
+        indent = {
+          enable = true,
+          chars = {
+              "│",
+          },
+          style = {
+              "#FF0000",
+              "#FF7F00",
+              "#FFFF00",
+              "#00FF00",
+              "#00FFFF",
+              "#0000FF",
+              "#8B00FF",
+          },
+        },
+        line_num = {
+          enable = true
+        }
+      })
+    end
+  })
 
   -- Autocompletion
   use("hrsh7th/cmp-nvim-lsp")
