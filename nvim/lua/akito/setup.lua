@@ -32,7 +32,7 @@ return require("packer").startup(function(use)
   use "wbthomason/packer.nvim"
 
   -- Theme
-  use "catppuccin/nvim"
+  use "rebelot/kanagawa.nvim"
 
   -- Syntax highlighting treesitter
   use({
@@ -89,37 +89,42 @@ return require("packer").startup(function(use)
   })
 
   -- Formatter
-  use({"stevearc/conform.nvim"})
+  use({
+    "nvimtools/none-ls.nvim",
+    requires = { "nvim-lua/plenary.nvim" },
+  })
+
+  use("stevearc/conform.nvim")
   use("jayp0521/mason-null-ls.nvim")
 
   -- Blank line, chunk
   use({
-    "shellRaining/hlchunk.nvim",
-    event = { "BufReadPre", "BufNewFile" },
-    config = function()
-      require("hlchunk").setup({
-        chunk = {
-          enable = true
-        },
-        indent = {
-          enable = true,
-          chars = {
-              "│",
-          },
-          style = {
-              "#FF0000",
-              "#FF7F00",
-              "#FFFF00",
-              "#00FF00",
-              "#00FFFF",
-              "#0000FF",
-              "#8B00FF",
-          },
-        },
-        line_num = {
-          enable = true
-        }
-      })
+     "shellRaining/hlchunk.nvim",
+   event = { "BufReadPre", "BufNewFile" },
+   config = function()
+     require("hlchunk").setup({
+       chunk = {
+         enable = true
+       },
+       indent = {
+         enable = true,
+         chars = {
+             "│",
+         },
+         style = {
+             "#FF0000",
+             "#FF7F00",
+             "#FFFF00",
+             "#00FF00",
+             "#00FFFF",
+             "#0000FF",
+             "#8B00FF",
+         },
+       },
+       line_num = {
+         enable = true
+       }
+     })
     end
   })
 
@@ -203,17 +208,17 @@ return require("packer").startup(function(use)
   -- }
 
   -- Make current buffer centered
-    use {
-        "shortcuts/no-neck-pain.nvim",
-        config = function()
-            require("no-neck-pain").setup({
-                buffers = {
-                    left = {
-                        enabled = false,
-                    },
-                },
-            })
-        end
-    }
+  --  use {
+  --      "shortcuts/no-neck-pain.nvim",
+  --      config = function()
+  --          require("no-neck-pain").setup({
+  --              buffers = {
+  --                  left = {
+  --                      enabled = false,
+  --                  },
+  --              },
+  --          })
+  --      end
+  --  }
 end
 )
