@@ -159,6 +159,9 @@ return require("packer").startup(function(use)
   use({
     "neovim/nvim-lspconfig",
     config = function()
+
+
+      local capabilities = require("cmp_nvim_lsp").default_capabilities()
       local lspconfig = require("lspconfig")
 
       -- typescript / javascript lsp
@@ -175,6 +178,7 @@ return require("packer").startup(function(use)
             gofumpt = true,
           },
         },
+        capabilities = capabilities
       })
 
       -- rust lsp
@@ -183,6 +187,7 @@ return require("packer").startup(function(use)
         settings = {
           ['rust-analyzer'] = {},
         },
+        capabilities = capabilities
       })
 
       -- julia lsp
@@ -199,11 +204,15 @@ return require("packer").startup(function(use)
           local util = require("lspconfig.util")
           return util.root_pattern 'Project.toml'(fname) or util.find_git_ancestor(fname) or
              util.path.dirname(fname)
-        end
+        end,
+
+        capabilities = capabilities
       })
 
       -- python lsp
-      lspconfig.ruff.setup({})
+      lspconfig.ruff.setup({
+        capabilities = capabilities
+      })
 
       -- lua lsp
       lspconfig.lua_ls.setup({
@@ -235,16 +244,21 @@ return require("packer").startup(function(use)
             }
           })
         end,
+        capabilities = capabilities,
         settings = {
           Lua = {}
         }
       })
 
       --yaml lsp
-      lspconfig.yamlls.setup({})
+      lspconfig.yamlls.setup({
+        capabilities = capabilities
+      })
 
       --tailwindcss lsp
-      lspconfig.tailwindcss.setup({})
+      lspconfig.tailwindcss.setup({
+        capabilities = capabilities
+      })
 
     end
   })
@@ -280,6 +294,8 @@ return require("packer").startup(function(use)
 
           null_ls.builtins.formatting.prettier.with({ filetypes = { "js", "jsx", "ts", "tsx" } }),
           null_ls.builtins.diagnostics.eslint_d,
+
+          null_ls.builtins.formatting.stylua,
 
           null_ls.builtins.diagnostics.yamllint,
           null_ls.builtins.formatting.yamlfmt,
