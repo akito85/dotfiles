@@ -6,7 +6,7 @@ import = [
 [env]
 TERM = "xterm-256color"
 
-[shell]
+[terminal.shell]
 args = ['--login']
 program = "/usr/bin/fish"
 
@@ -14,7 +14,7 @@ program = "/usr/bin/fish"
 style = "Beam"
 
 [font]
-size = 16.0
+size = 11.0
 
 [font.normal]
 family = "0xProto Nerd Font"
@@ -22,8 +22,8 @@ family = "0xProto Nerd Font"
 [window]
 startup_mode = "Windowed"
 dynamic_padding = true
-opacity = 0.7
-blur = true
+# opacity = 0.7
+# blur = true
 decorations = "Buttonless"
 option_as_alt = "Both"
 
