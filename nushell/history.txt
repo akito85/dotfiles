@@ -155,3 +155,27 @@ x --help
 sh -c '. "$HOME/.x-cmd.root/X"; x upgrade latest; x nu --setup'
 nvim .config/nushell
 ll
+cp -r ~/.config/nushell ~/Repositories/dotfiles
+z dotfiles
+git status
+git add nushell/
+git status
+git commit -m "Added support for x-cmd and alias"
+git push origin main
+z glyphctl
+cd ..
+ll
+z glyphctl
+ll
+git status
+git add "AI Prompt" "Engineering Stacks" Git Neovim PRODUCTIVITY.md
+git status
+git commit -m "Updated"
+git push origin main
+ll
+curl localhost:3000
+cargo install yazi-fm
+yazi
+nvim .config/nushell
+ll
+nvim ~/.config/nushell/
