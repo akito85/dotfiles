@@ -17,6 +17,9 @@
 # You can remove these comments if you want or leave
 # them for future reference.
 
+# x-cmd
+use '/home/akito/.x-cmd.root/local/data/nu/rc.nu' *; source '/home/akito/.x-cmd.root/local/data/nu/advise.nu'; # boot up x-cmd.
+
 # starship
 mkdir ($nu.data-dir | path join "vendor/autoload")
 starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")

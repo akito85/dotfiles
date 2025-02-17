@@ -125,3 +125,33 @@ z
 z dotfiles
 ll
 cd ~
+cp -r ~/.config/nushell ~/Repositories/dotfiles
+z dotfiles
+ls -la
+cd nushell/
+ls -la
+git status
+git add kitty qutebrowser nushell
+git status
+cd ..
+git status
+git add kitty/ qutebrowser/ nushell/
+git commit -m "Added kitty, qutebrowser, and nushell config"
+git push origin main
+cd ..
+ll
+ls -la
+cd ..
+cd Repositories/
+mkdir experimentals
+ls -l
+cd experimentals/
+mkdir go-be-tester
+mkdir go-fe-tester
+z experimentals
+ll
+ls -l
+x --help
+sh -c '. "$HOME/.x-cmd.root/X"; x upgrade latest; x nu --setup'
+nvim .config/nushell
+ll

@@ -17,5 +17,6 @@
 # You can remove these comments if you want or leave
 # them for future reference.
 
+source /home/akito/.config/nushell/includes/0xAlias.nu
 source /home/akito/.config/nushell/includes/zoxide.nu
 use /home/akito/.config/nushell/includes/fnm.nu
