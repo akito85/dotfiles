@@ -10,6 +10,7 @@
 # here, since multilingual X sessions would not work properly if LANG is over-
 # ridden in every subshell.
 
+# rust
 test -s ~/.alias && . ~/.alias || true
 . "$HOME/.cargo/env"
 
@@ -21,6 +22,9 @@ export PATH="$PATH:/home/akito/.lmstudio/bin"
 
 # starship
 eval "$(starship init bash)"
+
+# zoxide
+eval "$(zoxide init bash)"
 
 # pnpm
 export PNPM_HOME="/home/akito/.local/share/pnpm"
