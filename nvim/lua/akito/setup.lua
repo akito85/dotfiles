@@ -85,7 +85,7 @@ return require("packer").startup(function(use)
     },
     config = function()
       require("neo-tree").setup({
-        window = {
+          window = {
           position = "right", -- left, right, top, bottom, float, current
           width = 41, -- applies to left and right positions
           height = 15, -- applies to top and bottom positions
@@ -140,6 +140,8 @@ return require("packer").startup(function(use)
   use("alexghergh/nvim-tmux-navigation")
 
   -- Language servers and configurations
+  use("jay-babu/mason-null-ls.nvim")
+
   use({
     "williamboman/mason.nvim",
     config = function()
@@ -153,6 +155,55 @@ return require("packer").startup(function(use)
     config = function()
       local mason_lspconfig = require("mason-lspconfig")
        mason_lspconfig.setup({})
+    end
+  })
+
+  -- Lspsaga
+  use({
+    "nvimdev/lspsaga.nvim",
+    after = "nvim-lspconfig",
+    config = function()
+      local lspsaga = require("lspsaga")
+      lspsaga.setup({})
+    end,
+  })
+
+  -- Formatter
+  use({
+    "nvimtools/none-ls.nvim",
+    config = function()
+      local null_ls = require("null-ls")
+      null_ls.setup({
+        sources = {
+          null_ls.builtins.formatting.gofumpt,
+          null_ls.builtins.diagnostics.golines,
+
+          null_ls.builtins.formatting.black,
+          null_ls.builtins.diagnostics.ruff,
+
+          null_ls.builtins.formatting.julials,
+          null_ls.builtins.diagnostics.julials,
+
+          null_ls.builtins.formatting.clang_format,
+          null_ls.builtins.diagnostics.cppcheck,
+
+          null_ls.builtins.formatting.prettier.with({ filetypes = { "js", "jsx", "ts", "tsx" } }),
+          null_ls.builtins.diagnostics.ts_ls,
+
+          null_ls.builtins.formatting.stylua,
+
+          null_ls.builtins.diagnostics.yamllint,
+          null_ls.builtins.formatting.yamlfmt,
+
+          -- null_ls.builtins.diagnostics.tailwindcss,
+          -- null_ls.builtins.formatting.tailwindcss,
+
+          null_ls.builtins.code_actions.refactoring,
+          null_ls.builtins.completion.luasnip,
+          -- null_ls.builtins.diagnostics.rust_analyzer,
+          -- null_ls.builtins.formatting.taplo,
+        },
+      })
     end
   })
 
@@ -262,54 +313,6 @@ return require("packer").startup(function(use)
 
     end
   })
-
-  -- Lspsaga
-  use({
-    "nvimdev/lspsaga.nvim",
-    after = "nvim-lspconfig",
-    config = function()
-      local lspsaga = require("lspsaga")
-      lspsaga.setup({})
-    end,
-  })
-
-  -- Formatter
-  use({
-    "nvimtools/none-ls.nvim",
-    config = function()
-      local null_ls = require("null-ls")
-      null_ls.setup({
-        sources = {
-          null_ls.builtins.formatting.gofumpt,
-          null_ls.builtins.formatting.golines,
-
-          null_ls.builtins.formatting.black,
-          null_ls.builtins.diagnostics.ruff,
-
-          null_ls.builtins.formatting.julials,
-          null_ls.builtins.diagnostics.julials,
-
-          null_ls.builtins.formatting.clang_format,
-          null_ls.builtins.diagnostics.cpplint,
-
-          null_ls.builtins.formatting.prettier.with({ filetypes = { "js", "jsx", "ts", "tsx" } }),
-          null_ls.builtins.diagnostics.eslint_d,
-
-          null_ls.builtins.formatting.stylua,
-
-          null_ls.builtins.diagnostics.yamllint,
-          null_ls.builtins.formatting.yamlfmt,
-
-          null_ls.builtins.diagnostics.tailwindcss_language_server,
-
-          -- null_ls.builtins.diagnostics.rust_analyzer,
-          null_ls.builtins.formatting.taplo,
-        },
-      })
-    end
-  })
-
-  use("jay-babu/mason-null-ls.nvim")
 
   -- Autocompletion
   use("hrsh7th/cmp-nvim-lsp")
