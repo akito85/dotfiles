@@ -1,3 +1,7 @@
+-- disabled on init
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
 -- some global config
 vim.api.nvim_create_autocmd("BufWritePre", {
     pattern = "*",
