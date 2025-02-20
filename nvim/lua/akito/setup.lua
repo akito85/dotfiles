@@ -140,8 +140,6 @@ return require("packer").startup(function(use)
   use("alexghergh/nvim-tmux-navigation")
 
   -- Language servers and configurations
-  use("jay-babu/mason-null-ls.nvim")
-
   use({
     "williamboman/mason.nvim",
     config = function()
@@ -149,6 +147,8 @@ return require("packer").startup(function(use)
       mason.setup({})
     end
   })
+
+  use("jay-babu/mason-null-ls.nvim")
 
   use({
     "williamboman/mason-lspconfig.nvim",
@@ -169,44 +169,6 @@ return require("packer").startup(function(use)
   })
 
   -- Formatter
-  use({
-    "nvimtools/none-ls.nvim",
-    config = function()
-      local null_ls = require("null-ls")
-      null_ls.setup({
-        sources = {
-          null_ls.builtins.formatting.gofumpt,
-          null_ls.builtins.diagnostics.golines,
-
-          null_ls.builtins.formatting.black,
-          null_ls.builtins.diagnostics.ruff,
-
-          null_ls.builtins.formatting.julials,
-          null_ls.builtins.diagnostics.julials,
-
-          null_ls.builtins.formatting.clang_format,
-          null_ls.builtins.diagnostics.cppcheck,
-
-          null_ls.builtins.formatting.prettier.with({ filetypes = { "js", "jsx", "ts", "tsx" } }),
-          null_ls.builtins.diagnostics.ts_ls,
-
-          null_ls.builtins.formatting.stylua,
-
-          null_ls.builtins.diagnostics.yamllint,
-          null_ls.builtins.formatting.yamlfmt,
-
-          -- null_ls.builtins.diagnostics.tailwindcss,
-          -- null_ls.builtins.formatting.tailwindcss,
-
-          null_ls.builtins.code_actions.refactoring,
-          null_ls.builtins.completion.luasnip,
-          -- null_ls.builtins.diagnostics.rust_analyzer,
-          -- null_ls.builtins.formatting.taplo,
-        },
-      })
-    end
-  })
-
   use({
     "neovim/nvim-lspconfig",
     config = function()
@@ -313,6 +275,46 @@ return require("packer").startup(function(use)
 
     end
   })
+
+  use({
+    "nvimtools/none-ls.nvim",
+    config = function()
+      local null_ls = require("null-ls")
+      null_ls.setup({
+        sources = {
+          null_ls.builtins.formatting.gofumpt.with({ filetypes = { "go" } }),
+          -- null_ls.builtins.diagnostics.golines.with({ filetypes = { "go" } }),
+
+          null_ls.builtins.formatting.black.with({ filetypes = { "py" } }),
+          -- null_ls.builtins.diagnostics.ruff.with({ filetypes = { "py" } }),
+
+          null_ls.builtins.formatting.julials,
+          null_ls.builtins.diagnostics.julials,
+
+          null_ls.builtins.formatting.clang_format.with({ filetypes = { "c", "cpp", "cc" } }),
+          null_ls.builtins.diagnostics.cppcheck.with({ filetypes = { "c", "cpp", "cc" } }),
+
+          null_ls.builtins.formatting.prettier.with({ filetypes = { "js", "jsx", "ts", "tsx" } }),
+          -- null_ls.builtins.diagnostics.ts_ls,
+
+          null_ls.builtins.formatting.stylua.with({ filetypes = { "lua" } }),
+          null_ls.builtins.completion.luasnip.with({ filetypes = { "lua" } }),
+
+          null_ls.builtins.diagnostics.yamllint.with({ filetypes = { "yml", "yaml" } }),
+          null_ls.builtins.formatting.yamlfmt.with({ filetypes = { "yml", "yaml" } }),
+
+          -- null_ls.builtins.diagnostics.tailwindcss,
+          -- null_ls.builtins.formatting.tailwindcss,
+
+          null_ls.builtins.code_actions.refactoring,
+          -- null_ls.builtins.diagnostics.rust_analyzer,
+          -- null_ls.builtins.formatting.taplo,
+        },
+      })
+    end
+  })
+
+
 
   -- Autocompletion
   use("hrsh7th/cmp-nvim-lsp")
