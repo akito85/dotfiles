@@ -59,7 +59,14 @@ return require("packer").startup(function(use)
           "julia",
           "python",
           "javascript",
-          "typescript"
+          "typescript",
+          -- secondary needs
+          "css",
+          "csv",
+          "dockerfile",
+          "helm",
+          "prisma",
+          "yaml"
         },
       }
     end,
@@ -178,7 +185,9 @@ return require("packer").startup(function(use)
       local lspconfig = require("lspconfig")
 
       -- typescript / javascript lsp
-      lspconfig.ts_ls.setup({})
+      lspconfig.ts_ls.setup({
+      capabilities = capabilities
+      })
 
       -- golang lsp
       lspconfig.gopls.setup({
@@ -273,6 +282,22 @@ return require("packer").startup(function(use)
         capabilities = capabilities
       })
 
+      --docker lsp
+      lspconfig.dockerls.setup({
+        capabilities = capabilities
+      })
+
+      --docker compose lsp
+      lspconfig.docker_compose_language_service.setup({
+        capabilities = capabilities
+      })
+
+      --clangd lsp
+      lspconfig.clangd.setup({
+        capabilities = capabilities
+      })
+
+
     end
   })
 
@@ -287,9 +312,6 @@ return require("packer").startup(function(use)
 
           null_ls.builtins.formatting.black.with({ filetypes = { "py" } }),
           -- null_ls.builtins.diagnostics.ruff.with({ filetypes = { "py" } }),
-
-          null_ls.builtins.formatting.julials,
-          null_ls.builtins.diagnostics.julials,
 
           null_ls.builtins.formatting.clang_format.with({ filetypes = { "c", "cpp", "cc" } }),
           null_ls.builtins.diagnostics.cppcheck.with({ filetypes = { "c", "cpp", "cc" } }),
@@ -316,25 +338,6 @@ return require("packer").startup(function(use)
 
 
 
-  -- Autocompletion
-  use("hrsh7th/cmp-nvim-lsp")
-  use("hrsh7th/cmp-buffer")
-  use("hrsh7th/cmp-path")
-  use("hrsh7th/cmp-cmdline")
-  use("hrsh7th/nvim-cmp")
-
-  -- Snippets
-  use({
-    "L3MON4D3/LuaSnip",
-    -- follow latest release.
-    tag = "v2.*", -- Replace <CurrentMajor> by the latest released major (first number of latest release)
-    -- install jsregexp (optional!:).
-    run = "make install_jsregexp"
-  })
-
-  use("saadparwaiz1/cmp_luasnip")
-  use("rafamadriz/friendly-snippets")
-
   -- Git for add, remove, and changed lines
   use "lewis6991/gitsigns.nvim"
   use "tpope/vim-fugitive"
@@ -344,6 +347,10 @@ return require("packer").startup(function(use)
 
   -- Repeat
   use "tpope/vim-repeat"
+
+  -- For :Remove, :Delete, :Move, :Mkdir, :Chmod, :Wall
+  -- :SudoWrite, :SudoEdit, :Cfind, :Clocate, :Lfind, :Llocate
+  use "tpope/vim-eunuch"
 
   -- MULTI CURSOR
   use({"mg979/vim-visual-multi", branch = "master"})
@@ -426,5 +433,28 @@ return require("packer").startup(function(use)
   --          })
   --      end
   --  }
+
+  -- Autocompletion
+  use("hrsh7th/cmp-nvim-lsp")
+  use("hrsh7th/cmp-buffer")
+  use("hrsh7th/cmp-path")
+  use("hrsh7th/cmp-cmdline")
+  use("hrsh7th/nvim-cmp")
+
+  -- Snippets
+  use("rafamadriz/friendly-snippets")
+
+  use({
+    "L3MON4D3/LuaSnip",
+    -- follow latest release.
+    tag = "v2.*", -- Replace <CurrentMajor> by the latest released major (first number of latest release)
+    -- install jsregexp (optional!:).
+    run = "make install_jsregexp",
+    dependencies = { "rafamadriz/friendly-snippets" },
+  })
+
+  use("saadparwaiz1/cmp_luasnip")
+
+
 end
 )
