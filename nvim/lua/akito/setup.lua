@@ -439,7 +439,24 @@ return require("packer").startup(function(use)
   use("hrsh7th/cmp-buffer")
   use("hrsh7th/cmp-path")
   use("hrsh7th/cmp-cmdline")
-  use("hrsh7th/nvim-cmp")
+  use({
+    "hrsh7th/nvim-cmp",
+    config = function ()
+      require("cmp").setup({
+      snippet = {
+        expand = function(args)
+          require("luasnip").lsp_expand(args.body)
+        end
+      },
+
+      sources = {
+        { name = 'luasnip' },
+        -- more sources
+      },
+    })
+    end
+
+  })
 
   -- Snippets
   use("rafamadriz/friendly-snippets")
@@ -451,10 +468,19 @@ return require("packer").startup(function(use)
     -- install jsregexp (optional!:).
     run = "make install_jsregexp",
     dependencies = { "rafamadriz/friendly-snippets" },
+    config = function()
+        require("luasnip.loaders.from_vscode").lazy_load()
+    end
   })
 
   use("saadparwaiz1/cmp_luasnip")
 
+  -- Harpoon
+  use {
+    "ThePrimeagen/harpoon",
+    branch = "harpoon2",
+    requires = { {"nvim-lua/plenary.nvim"} }
+  }
 
 end
 )
