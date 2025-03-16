@@ -51,3 +51,6 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 
 # fnm
 eval "$(fnm env --use-on-cd --shell bash)"
+
+# atuin
+eval "$(atuin init bash)"
