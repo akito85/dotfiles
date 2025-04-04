@@ -1,3 +1,4 @@
 ./nvim/plugin/packer_compiled.lua
 ./nvim/plugin/*.lua
 ./alacritty/themes
+./nushell/history.txt
