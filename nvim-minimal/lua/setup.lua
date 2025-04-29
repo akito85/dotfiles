@@ -211,19 +211,8 @@ local function setup_keybindings()
   })
 
   -- Neo-tree focus keybinding based on position
-  local function set_neotree_focus_key()
-    local position = neotree.config.window.position
-    if position == 'left' then
-      vim.keymap.set('n', '<C-h>', ':Neotree focus<CR>', { noremap = true, silent = true })
-      vim.keymap.set('n', '<C-l>', ':wincmd p<CR>', { noremap = true, silent = true })
-    elseif position == 'right' then
-      vim.keymap.set('n', '<C-l>', ':Neotree focus<CR>', { noremap = true, silent = true })
-      vim.keymap.set('n', '<C-h>', ':wincmd p<CR>', { noremap = true, silent = true })
-    end
-  end
-
-  -- Initial focus key setup
-  set_neotree_focus_key()
+  vim.keymap.set('n', '<C-h>', ':Neotree focus<CR>', { noremap = true, silent = true })
+  vim.keymap.set('n', '<C-l>', ':wincmd p<CR>', { noremap = true, silent = true })
 
   -- LSP setup
   local lspconfig = require('lspconfig')
