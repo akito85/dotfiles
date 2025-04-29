@@ -9,3 +9,16 @@ git status
 git stash
 git stash apply
 git status
+git add .
+git commit -m "Readded"
+git status
+git pull origin main --rebase
+cd nvim-minimal/
+lla
+ls -la
+git status
+git add .
+git commit -m "Readded"
+cd ..
+git rm . --cached
+git rm -rf . --cached
