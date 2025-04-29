@@ -213,3 +213,10 @@ git add fish/functions/llx.fish
 git commit -m "Updated to use eza"
 git diff nushell
 git status
+git checkout ../nushell/history.txt
+git status
+cd ..
+git status
+git pull origin main
+git commit -m "Rebased?"
+ll
