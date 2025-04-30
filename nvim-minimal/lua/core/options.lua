@@ -49,17 +49,18 @@ vim.opt.completeopt = {'menu', 'menuone', 'noselect'}
 -- Status line optimized for performance
 vim.opt.statusline = [[%f %h%w%m%r%=%y %-14.(%l,%c%V%) %P]]
 
--- Clipboard setup
+-- Native Wayland clipboard support
 vim.g.clipboard = {
-  name = 'OSC 52',
+  name = 'WaylandClipboard',
   copy = {
-    ['+'] = require('vim.ui.clipboard.osc52').copy,
-    ['*'] = require('vim.ui.clipboard.osc52').copy,
+    ['+'] = 'wl-copy',
+    ['*'] = 'wl-copy',
   },
   paste = {
-    ['+'] = require('vim.ui.clipboard.osc52').paste,
-    ['*'] = require('vim.ui.clipboard.osc52').paste,
+    ['+'] = 'wl-paste',
+    ['*'] = 'wl-paste',
   },
+  cache_enabled = 1,
 }
 
 -- Disable built-in plugins for startup performance

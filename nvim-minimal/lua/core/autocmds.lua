@@ -34,10 +34,55 @@ vim.api.nvim_create_autocmd({"InsertLeave"}, {
 vim.api.nvim_create_autocmd({"BufRead", "BufNewFile"}, {
   pattern = "*",
   callback = function()
+    vim.treesitter.stop() -- Stop Tree-sitter for the current buffer
     if vim.bo.filetype == '' then
       vim.bo.filetype = 'text'
     end
   end,
+})
+
+-- Create augroups with clear=true to ensure our commands take precedence
+local disable_lua_ts_group = vim.api.nvim_create_augroup("DisableLuaTreesitter", { clear = true })
+
+-- Disable the built-in Lua ftplugin that tries to use Tree-sitter
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "lua",
+  callback = function()
+    -- Disable Tree-sitter for Lua specifically
+    vim.treesitter.stop()
+    
+    -- Set a buffer variable to prevent Tree-sitter loading
+    vim.b.ts_highlight = 0
+    
+    -- Force traditional syntax highlighting for Lua
+    vim.bo.syntax = "lua"
+    
+    -- This prevents the built-in lua.lua ftplugin from running its Tree-sitter code
+    vim.b.did_ftplugin_treesitter_lua = 1
+  end,
+  group = disable_lua_ts_group,
+  desc = "Disable Tree-sitter for Lua files"
+})
+
+-- Preemptively set buffer variables before ftplugin runs
+vim.api.nvim_create_autocmd({"BufReadPre", "BufNewFile"}, {
+  pattern = "*.lua",
+  callback = function()
+    -- This prevents the built-in lua.lua ftplugin from running its Tree-sitter code
+    vim.b.did_ftplugin_treesitter_lua = 1
+  end,
+  group = disable_lua_ts_group,
+  desc = "Prevent Tree-sitter errors in Lua files"
+})
+
+-- In Neovim 0.11, you can also use the new filetype control features
+vim.filetype.add({
+  extension = {
+    lua = function()
+      vim.b.did_ftplugin_treesitter_lua = 1
+      return "lua"
+    end,
+  },
 })
 
 local autocmd_group = vim.api.nvim_create_augroup("PerformanceAutocmds", { clear = true })
