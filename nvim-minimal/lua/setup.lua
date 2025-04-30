@@ -177,10 +177,19 @@ local function setup_essential_keybindings()
   vim.keymap.set('i', 'kj', '<ESC>', { noremap = true, silent = true })
   vim.keymap.set('n', 'H', '^', { noremap = true })
   vim.keymap.set('n', 'L', '$', { noremap = true })
+  
+  -- Window navigation with both leader and Ctrl
   vim.keymap.set('n', '<leader>h', '<C-w>h', { noremap = true })
   vim.keymap.set('n', '<leader>j', '<C-w>j', { noremap = true })
   vim.keymap.set('n', '<leader>k', '<C-w>k', { noremap = true })
   vim.keymap.set('n', '<leader>l', '<C-w>l', { noremap = true })
+  
+  -- Add direct Ctrl navigation keybindings
+  vim.keymap.set('n', '<C-j>', '<C-w>j', { noremap = true, silent = true })
+  vim.keymap.set('n', '<C-k>', '<C-w>k', { noremap = true, silent = true })
+  vim.keymap.set('n', '<C-l>', '<C-w>l', { noremap = true, silent = true })
+  -- <C-h> is configured in Neo-tree setup to focus Neo-tree and toggle back to buffers
+  
   vim.keymap.set('n', '<leader>n', ':bn<CR>', { noremap = true, silent = true })
   vim.keymap.set('n', '<leader>p', ':bp<CR>', { noremap = true, silent = true })
   vim.keymap.set('n', '<leader>d', ':bd<CR>', { noremap = true, silent = true })
@@ -483,7 +492,6 @@ require("lazy").setup({
     branch = "v3.x",
     keys = {
       { "<leader>e", "<cmd>Neotree toggle reveal<cr>", desc = "Toggle Explorer" },
-      { "<C-h>", "<cmd>Neotree focus<cr>", desc = "Focus Explorer" },
     },
     dependencies = {
       "nvim-lua/plenary.nvim",
@@ -510,14 +518,22 @@ require("lazy").setup({
         window = {
           position = 'left',
           width = 30,
-          mappings = { ["<space>"] = "none" },
+          mappings = { 
+            ["<space>"] = "none",
+            -- Add a toggle mapping for <C-h> to toggle between neotree and buffer
+            ["<C-h>"] = "toggle_preview", -- Use preview toggle as an example action
+          },
         },
         event_handlers = {
-          -- Fixed behavior: Clicking file keeps Neo-tree open
+          -- Fix for buffer clearing issue - don't unload current buffer on file_open
           {
             event = "file_opened",
-            handler = function()
-              -- Do nothing, keep Neo-tree open
+            handler = function(file_path)
+              -- Don't close the tree when opening a file
+              -- and don't clear the buffer
+              require("neo-tree.sources.manager").close_all()
+              -- Optionally focus the opened file
+              vim.cmd("e " .. vim.fn.fnameescape(file_path))
             end
           },
         },
@@ -593,6 +609,22 @@ require("lazy").setup({
 
 -- Initialize essential keybindings
 setup_essential_keybindings()
+
+-- Additional keybindings for Ctrl-based navigation
+-- <C-h> is now defined in neo-tree config
+vim.keymap.set('n', '<C-h>', function()
+  -- Check if current window is a neo-tree window
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_buftype = vim.api.nvim_buf_get_option(current_buf, 'filetype')
+  
+  if current_buftype == 'neo-tree' then
+    -- If in neo-tree, move to the next window to the right
+    vim.cmd('wincmd l')
+  else
+    -- If in a regular buffer, focus neo-tree
+    vim.cmd('Neotree focus')
+  end
+end, { noremap = true, silent = true })
 
 -- Additional performance optimizations for startup
 vim.api.nvim_create_autocmd("VimEnter", {
