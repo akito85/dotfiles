@@ -143,9 +143,11 @@ vim.opt.shortmess:append("c")
 vim.opt.cmdheight = 1
 vim.opt.laststatus = 2
 vim.opt.showcmd = false
+vim.opt.timeout = true
 
 -- PLUGIN MANAGEMENT OPTIMIZATIONS
 --------------------------------------------------------------------------------
+-- Disable built-in plugins to improve startup time
 local disabled_built_ins = {
   "netrw", "netrwPlugin", "netrwSettings", "netrwFileHandlers",
   "gzip", "zip", "zipPlugin", "tar", "tarPlugin",
@@ -305,251 +307,289 @@ vim.api.nvim_create_user_command("MaxPerformance", function()
   vim.notify('Maximum performance mode enabled for current buffer', vim.log.levels.INFO)
 end, {})
 
--- Package manager setup (Packer)
-local ensure_packer = function()
-  local install_path = vim.fn.stdpath('data')..'/site/pack/packer/start/packer.nvim'
-  if vim.fn.empty(vim.fn.glob(install_path)) > 0 then
-    vim.fn.system({'git', 'clone', '--depth', '1', 'https://github.com/wbthomason/packer.nvim', install_path})
-    vim.cmd [[packadd packer.nvim]]
-    return true
+-- Replace Packer with lazy.nvim
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
+  vim.fn.system({
+    "git",
+    "clone",
+    "--filter=blob:none",
+    "https://github.com/folke/lazy.nvim.git",
+    "--branch=stable", -- latest stable release
+    lazypath,
+  })
+end
+vim.opt.rtp:prepend(lazypath)
+
+-- Define startup time reporting function
+local startup_time_displayed = false
+local function display_startup_time()
+  if not startup_time_displayed then
+    local startuptime = vim.fn.system("nvim --headless --noplugin --startuptime /tmp/nvim_startuptime -c 'quit' && tail -n 1 /tmp/nvim_startuptime | cut -d ' ' -f1"):gsub("%s+", "")
+    vim.notify(string.format("Neovim startup time: %s ms", startuptime), vim.log.levels.INFO)
+    startup_time_displayed = true
   end
-  return false
 end
 
-local packer_bootstrap = ensure_packer()
-
--- Define setup_plugins before startup
-local function setup_plugins()
-  -- Theme setup
-  local ok, tokyonight = pcall(require, 'tokyonight')
-  if ok then
-    tokyonight.setup({
-      style = 'storm',
-      transparent = false,
-      terminal_colors = true,
-      styles = {
-        comments = { italic = true },
-        keywords = { italic = true },
-        functions = {},
-        variables = {},
-        sidebars = 'dark',
-        floats = 'dark',
-      },
-    })
-    vim.cmd('colorscheme tokyonight-storm')
-  else
-    vim.notify('Failed to load tokyonight', vim.log.levels.WARN)
-  end
-
-  -- Fast completion setup
-  local cmp_ok, cmp = pcall(require, 'cmp')
-  local luasnip_ok, luasnip = pcall(require, 'luasnip')
-  if cmp_ok and luasnip_ok then
-    cmp.setup({
-      snippet = {
-        expand = function(args)
-          luasnip.lsp_expand(args.body)
-        end,
-      },
-      mapping = cmp.mapping.preset.insert({
-        ['<C-Space>'] = cmp.mapping.complete(),
-        ['<CR>'] = cmp.mapping.confirm({ select = true }),
-        ['<Tab>'] = cmp.mapping(function(fallback)
-          if cmp.visible() then
-            cmp.select_next_item()
-          else
-            fallback()
-          end
-        end, { 'i', 's' }),
-        ['<S-Tab>'] = cmp.mapping(function(fallback)
-          if cmp.visible() then
-            cmp.select_prev_item()
-          else
-            fallback()
-          end
-        end, { 'i', 's' }),
-      }),
-      sources = cmp.config.sources({
-        { name = 'nvim_lsp', max_item_count = 10 },
-        { name = 'luasnip', max_item_count = 5 },
-        { name = 'buffer', max_item_count = 8, keyword_length = 3 },
-        { name = 'path', max_item_count = 5 },
-      }),
-      performance = {
-        max_view_entries = 8,
-        debounce = 100,
-        throttle = 50,
-        fetching_timeout = 80,
-      },
-    })
-  else
-    vim.notify('Failed to load cmp or luasnip', vim.log.levels.WARN)
-  end
-
-  -- Telescope setup
-  local telescope_ok, telescope = pcall(require, 'telescope.builtin')
-  if telescope_ok then
-    require('telescope').setup {
-      defaults = {
-        vimgrep_arguments = {
-          'rg',
-          '--color=never',
-          '--no-heading',
-          '--with-filename',
-          '--line-number',
-          '--column',
-          '--smart-case',
-          '--hidden',
-        },
-        initial_mode = 'insert',
-        selection_strategy = 'reset',
-        sorting_strategy = 'ascending',
-        layout_strategy = 'horizontal',
-        file_ignore_patterns = {
-          "%.git/",
-          "node_modules/",
-          "%.cache/",
-        },
-        generic_sorter = require('telescope.sorters').get_generic_fuzzy_sorter,
-        path_display = { "truncate" },
-        file_previewer = require('telescope.previewers').vim_buffer_cat.new,
-        grep_previewer = require('telescope.previewers').vim_buffer_vimgrep.new,
-        qflist_previewer = require('telescope.previewers').vim_buffer_qflist.new,
-        layout_config = {
-          horizontal = { preview_width = 0.5 },
-        },
-        preview = {
-          timeout = 200,
-          filesize_limit = 1,
-        },
-      }
+-- Plugins setup with lazy.nvim
+require("lazy").setup({
+  -- LSP
+  {
+    "neovim/nvim-lspconfig",
+    event = { "BufReadPre", "BufNewFile" },
+    config = function()
+      local lspconfig = require('lspconfig')
+      local servers = { 'pyright', 'tsserver', 'clangd', 'rust_analyzer', 'gopls' }
+      
+      for _, lsp in ipairs(servers) do
+        lspconfig[lsp].setup {
+          capabilities = require('cmp_nvim_lsp').default_capabilities(),
+          flags = { debounce_text_changes = 150 },
+          handlers = {
+            ["textDocument/publishDiagnostics"] = vim.lsp.with(
+              vim.lsp.diagnostic.on_publish_diagnostics, {
+                update_in_insert = false,
+                virtual_text = { spacing = 4, prefix = '●' },
+                severity_sort = true,
+                underline = false,
+              }
+            ),
+          },
+        }
+      end
+      
+      vim.keymap.set('n', '<leader>gd', vim.lsp.buf.definition, { noremap = true, silent = true })
+      vim.keymap.set('n', '<leader>gr', vim.lsp.buf.references, { noremap = true, silent = true })
+      vim.keymap.set('n', '<leader>gi', vim.lsp.buf.implementation, { noremap = true, silent = true })
+      vim.keymap.set('n', '<leader>gh', vim.lsp.buf.hover, { noremap = true, silent = true })
+      vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, { noremap = true, silent = true })
+      vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { noremap = true, silent = true })
+    end,
+    dependencies = {
+      "hrsh7th/cmp-nvim-lsp",
     }
-    vim.keymap.set('n', '<leader>ff', telescope.find_files, { noremap = true, silent = true })
-    vim.keymap.set('n', '<leader>fg', telescope.live_grep, { noremap = true, silent = true })
-    vim.keymap.set('n', '<leader>fb', telescope.buffers, { noremap = true, silent = true })
-    vim.keymap.set('n', '<leader>fh', telescope.help_tags, { noremap = true, silent = true })
-  else
-    vim.notify('Telescope not loaded - run :PackerSync', vim.log.levels.WARN)
-  end
-
-  -- Neo-tree setup
-  local neotree_ok, neotree = pcall(require, 'neo-tree')
-  if neotree_ok then
-    neotree.setup({
-      close_if_last_window = true,
-      filesystem = {
-        follow_current_file = { enabled = true },
-        use_libuv_file_watcher = true,
-        filtered_items = {
-          hide_dotfiles = false,
-          hide_gitignored = true,
+  },
+  
+  -- Completion
+  {
+    "hrsh7th/nvim-cmp",
+    event = { "InsertEnter", "CmdlineEnter" },
+    dependencies = {
+      "hrsh7th/cmp-buffer",
+      "hrsh7th/cmp-path",
+      "hrsh7th/cmp-cmdline",
+      "L3MON4D3/LuaSnip",
+      "saadparwaiz1/cmp_luasnip",
+    },
+    config = function()
+      local cmp = require('cmp')
+      local luasnip = require('luasnip')
+      
+      cmp.setup({
+        snippet = {
+          expand = function(args)
+            luasnip.lsp_expand(args.body)
+          end,
         },
-        scan_mode = "deep",
-        bind_to_cwd = false,
-        cwd_target = {
-          sidebar = "tab",
-          current = "window",
+        mapping = cmp.mapping.preset.insert({
+          ['<C-Space>'] = cmp.mapping.complete(),
+          ['<CR>'] = cmp.mapping.confirm({ select = true }),
+          ['<Tab>'] = cmp.mapping(function(fallback)
+            if cmp.visible() then
+              cmp.select_next_item()
+            else
+              fallback()
+            end
+          end, { 'i', 's' }),
+          ['<S-Tab>'] = cmp.mapping(function(fallback)
+            if cmp.visible() then
+              cmp.select_prev_item()
+            else
+              fallback()
+            end
+          end, { 'i', 's' }),
+        }),
+        sources = cmp.config.sources({
+          { name = 'nvim_lsp', max_item_count = 10 },
+          { name = 'luasnip', max_item_count = 5 },
+          { name = 'buffer', max_item_count = 8, keyword_length = 3 },
+          { name = 'path', max_item_count = 5 },
+        }),
+        performance = {
+          max_view_entries = 8,
+          debounce = 100,
+          throttle = 50,
+          fetching_timeout = 80,
         },
-      },
-      window = {
-        position = 'left',
-        width = 30,
-        mappings = { ["<space>"] = "none" },
-      },
-      event_handlers = {
-        {
-          event = "file_opened",
-          handler = function()
-            vim.cmd("Neotree close")
-          end
-        },
-      },
-      enable_diagnostics = false,
-      enable_git_status = false,
-      enable_modified_markers = false,
-      log_level = "warn",
-      log_to_file = false,
-    })
-    vim.keymap.set('n', '<C-h>', ':Neotree focus<CR>', { noremap = true, silent = true })
-    vim.keymap.set('n', '<C-l>', ':wincmd p<CR>', { noremap = true, silent = true })
-  else
-    vim.notify('Neo-tree not loaded - run :PackerSync', vim.log.levels.WARN)
-  end
-
-  -- LSP setup
-  local lspconfig_ok, lspconfig = pcall(require, 'lspconfig')
-  if lspconfig_ok then
-    local servers = { 'pyright', 'ts_ls', 'clangd', 'rust_analyzer', 'gopls' }
-    for _, lsp in ipairs(servers) do
-      lspconfig[lsp].setup {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
-        flags = { debounce_text_changes = 300 },
-        handlers = {
-          ["textDocument/publishDiagnostics"] = vim.lsp.with(
-            vim.lsp.diagnostic.on_publish_diagnostics, {
-              update_in_insert = false,
-              virtual_text = { spacing = 4, prefix = '●' },
-              severity_sort = true,
-              underline = false,
-            }
-          ),
-        },
+      })
+    end
+  },
+  
+  -- Telescope (file finder, grep)
+  {
+    "nvim-telescope/telescope.nvim",
+    cmd = "Telescope",
+    keys = {
+      { "<leader>ff", "<cmd>Telescope find_files<cr>", desc = "Find Files" },
+      { "<leader>fg", "<cmd>Telescope live_grep<cr>", desc = "Live Grep" },
+      { "<leader>fb", "<cmd>Telescope buffers<cr>", desc = "Buffers" },
+      { "<leader>fh", "<cmd>Telescope help_tags<cr>", desc = "Help Tags" },
+    },
+    dependencies = { 
+      "nvim-lua/plenary.nvim",
+    },
+    config = function()
+      require('telescope').setup {
+        defaults = {
+          vimgrep_arguments = {
+            'rg',
+            '--color=never',
+            '--no-heading',
+            '--with-filename',
+            '--line-number',
+            '--column',
+            '--smart-case',
+            '--hidden',
+          },
+          initial_mode = 'insert',
+          selection_strategy = 'reset',
+          sorting_strategy = 'ascending',
+          layout_strategy = 'horizontal',
+          file_ignore_patterns = {
+            "%.git/",
+            "node_modules/",
+            "%.cache/",
+          },
+          generic_sorter = require('telescope.sorters').get_generic_fuzzy_sorter,
+          path_display = { "truncate" },
+          file_previewer = require('telescope.previewers').vim_buffer_cat.new,
+          grep_previewer = require('telescope.previewers').vim_buffer_vimgrep.new,
+          qflist_previewer = require('telescope.previewers').vim_buffer_qflist.new,
+          layout_config = {
+            horizontal = { preview_width = 0.5 },
+          },
+          preview = {
+            timeout = 200,
+            filesize_limit = 1,
+          },
+        }
       }
     end
-    vim.keymap.set('n', '<leader>gd', vim.lsp.buf.definition, { noremap = true, silent = true })
-    vim.keymap.set('n', '<leader>gr', vim.lsp.buf.references, { noremap = true, silent = true })
-    vim.keymap.set('n', '<leader>gi', vim.lsp.buf.implementation, { noremap = true, silent = true })
-    vim.keymap.set('n', '<leader>gh', vim.lsp.buf.hover, { noremap = true, silent = true })
-    vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, { noremap = true, silent = true })
-    vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { noremap = true, silent = true })
-  else
-    vim.notify('LSPConfig not loaded - run :PackerSync', vim.log.levels.WARN)
-  end
-end
-
--- Plugin setup with Packer
-require('packer').startup(function(use)
-  use 'wbthomason/packer.nvim'
-  use {
-    'hrsh7th/nvim-cmp',
-    requires = {
-      'hrsh7th/cmp-buffer',
-      'hrsh7th/cmp-path',
-      'hrsh7th/cmp-cmdline',
-      'hrsh7th/cmp-nvim-lsp',
-      'L3MON4D3/LuaSnip',
-      'saadparwaiz1/cmp_luasnip',
-    }
-  }
-  use 'neovim/nvim-lspconfig'
-  use {
-    'nvim-telescope/telescope.nvim',
-    requires = { {'nvim-lua/plenary.nvim'} }
-  }
-  use {
-    'nvim-neo-tree/neo-tree.nvim',
-    branch = 'v3.x',
-    requires = { 
-      'nvim-lua/plenary.nvim',
-      'nvim-tree/nvim-web-devicons',
-      'MunifTanjim/nui.nvim',
-    }
-  }
-  use 'folke/tokyonight.nvim'
-  use {
-    'dstein64/vim-startuptime',
-    cmd = 'StartupTime',
-  }
+  },
   
-  if packer_bootstrap then
-    require('packer').sync(function()
-      vim.g.packer_synced = true
-      setup_plugins()
-    end)
-  else
-    setup_plugins()
-  end
-end)
+  -- Neo-tree (file explorer)
+  {
+    "nvim-neo-tree/neo-tree.nvim",
+    branch = "v3.x",
+    keys = {
+      { "<leader>e", "<cmd>Neotree toggle reveal<cr>", desc = "Toggle Explorer" },
+      { "<C-h>", "<cmd>Neotree focus<cr>", desc = "Focus Explorer" },
+    },
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      "nvim-tree/nvim-web-devicons",
+      "MunifTanjim/nui.nvim",
+    },
+    config = function()
+      require('neo-tree').setup({
+        close_if_last_window = true,
+        filesystem = {
+          follow_current_file = { enabled = true },
+          use_libuv_file_watcher = true,
+          filtered_items = {
+            hide_dotfiles = false,
+            hide_gitignored = true,
+          },
+          scan_mode = "deep",
+          bind_to_cwd = false,
+          cwd_target = {
+            sidebar = "tab",
+            current = "window",
+          },
+        },
+        window = {
+          position = 'left',
+          width = 30,
+          mappings = { ["<space>"] = "none" },
+        },
+        event_handlers = {
+          -- Fixed behavior: Clicking file keeps Neo-tree open
+          {
+            event = "file_opened",
+            handler = function()
+              -- Do nothing, keep Neo-tree open
+            end
+          },
+        },
+        enable_diagnostics = false,
+        enable_git_status = false,
+        enable_modified_markers = false,
+        log_level = "warn",
+        log_to_file = false,
+      })
+    end
+  },
+  
+  -- Theme
+  {
+    "folke/tokyonight.nvim",
+    lazy = false,
+    priority = 1000,
+    config = function()
+      require('tokyonight').setup({
+        style = 'storm',
+        transparent = false,
+        terminal_colors = true,
+        styles = {
+          comments = { italic = true },
+          keywords = { italic = true },
+          functions = {},
+          variables = {},
+          sidebars = 'dark',
+          floats = 'dark',
+        },
+      })
+      vim.cmd('colorscheme tokyonight-storm')
+    end
+  },
+  
+  -- Startup time measurement
+  {
+    "dstein64/vim-startuptime",
+    cmd = "StartupTime",
+    init = function()
+      -- Execute startup time display on VimEnter
+      vim.api.nvim_create_autocmd("VimEnter", {
+        callback = function()
+          vim.defer_fn(function()
+            display_startup_time()
+          end, 100)
+        end,
+      })
+    end
+  },
+  
+  -- Only include necessary dependencies
+  { "nvim-lua/plenary.nvim", lazy = true },
+  { "nvim-tree/nvim-web-devicons", lazy = true },
+  { "MunifTanjim/nui.nvim", lazy = true },
+}, {
+  checker = { enabled = false }, -- Disable update checking
+  performance = {
+    rtp = {
+      disabled_plugins = {
+        "gzip",
+        "tarPlugin",
+        "tohtml",
+        "tutor",
+        "zipPlugin",
+      },
+    },
+  },
+  install = {
+    colorscheme = { "tokyonight-storm" },
+  },
+})
 
 -- Initialize essential keybindings
 setup_essential_keybindings()
@@ -561,10 +601,6 @@ vim.api.nvim_create_autocmd("VimEnter", {
     vim.defer_fn(function()
       if vim.b.large_file then
         vim.notify('Large file mode active - some features disabled', vim.log.levels.INFO)
-      else
-        if vim.fn.exists(':Neotree') == 2 then
-          vim.keymap.set('n', '<leader>e', ':Neotree reveal<CR>', { noremap = true, silent = true })
-        end
       end
     end, 100)
   end,
@@ -587,8 +623,6 @@ vim.api.nvim_create_user_command("ProfileStop", function()
 end, {})
 
 -- Additional performance optimizations
-vim.opt.updatetime = 300
-
 vim.g.clipboard = {
   name = 'OSC 52',
   copy = {
@@ -601,21 +635,6 @@ vim.g.clipboard = {
   },
 }
 
-local disabled_built_ins = {
-  "netrw", "netrwPlugin", "netrwSettings", "netrwFileHandlers",
-  "gzip", "zip", "zipPlugin", "tar", "tarPlugin",
-  "getscript", "getscriptPlugin",
-  "vimball", "vimballPlugin",
-  "2html_plugin", "logipat", "rrhelper",
-  "spellfile_plugin", "matchit"
-}
-for _, plugin in pairs(disabled_built_ins) do
-  vim.g["loaded_" .. plugin] = 1
-end
-
-vim.opt.synmaxcol = 200
-vim.g.syntax_on = true
-
 vim.opt.cursorline = true
 vim.api.nvim_create_autocmd({"InsertEnter"}, {
   callback = function() vim.opt.cursorline = false end
@@ -623,17 +642,6 @@ vim.api.nvim_create_autocmd({"InsertEnter"}, {
 vim.api.nvim_create_autocmd({"InsertLeave"}, {
   callback = function() vim.opt.cursorline = true end
 })
-
-vim.opt.ttyfast = true
-vim.opt.lazyredraw = true
-
-vim.opt.timeout = true
-vim.opt.timeoutlen = 500
-vim.opt.ttimeoutlen = 10
-
-vim.opt.hidden = true
-vim.opt.history = 100
-vim.opt.undolevels = 1000
 
 vim.cmd([[
   augroup FastFT
@@ -678,17 +686,17 @@ vim.api.nvim_create_autocmd("BufWritePost", {
   end,
 })
 
+-- Garbage collection timer for better memory management
 local gc_timer = vim.loop.new_timer()
 gc_timer:start(30000, 30000, vim.schedule_wrap(function()
   collectgarbage("collect")
 end))
 
-vim.api.nvim_create_autocmd("BufReadPost", {
-  group = autocmd_group,
+-- Always display memory usage on startup
+vim.api.nvim_create_autocmd("VimEnter", {
   callback = function()
-    local ft = vim.bo.filetype
-    if ft == "lua" or ft == "python" or ft == "javascript" or ft == "typescript" then
-      vim.notify("LSP loaded for " .. ft, vim.log.levels.INFO)
-    end
+    vim.defer_fn(function()
+      _G.check_memory_usage()
+    end, 500)
   end,
 })
