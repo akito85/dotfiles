@@ -1,5 +1,5 @@
-./nvim/plugin/packer_compiled.lua
-./nvim/plugin/*.lua
-./alacritty/themes
-./nushell/history.txt
-./nvim-minimal/lazy-lock.json
+nvim/plugin/packer_compiled.lua
+nvim/plugin/*.lua
+alacritty/themes
+nushell/history.txt
+nvim-minimal/lazy-lock.json
