@@ -200,6 +200,7 @@ require("lazy").setup({
         enable_modified_markers = false,
         log_level = "warn",
         log_to_file = false,
+        use_popups_for_input = true, -- Avoid floating windows that might use Tree-sitter
       })
     end
   },
@@ -267,6 +268,62 @@ require("lazy").setup({
       end,
   },
 
+  -- file type plugin
+  {
+    "nathom/filetype.nvim",
+    lazy = false, -- Load during startup
+    priority = 1000, -- High priority to load before other plugins
+    config = function()
+      -- Basic setup with overrides
+      require("filetype").setup({
+        overrides = {
+          extensions = {
+            -- Override Lua filetype handling to not use Tree-sitter
+            lua = "lua_no_ts", -- Use our custom filetype
+          },
+          literal = {
+            -- Handle specific Lua files if needed
+            [".luacheckrc"] = "lua_no_ts",
+          },
+          complex = {
+            -- Handle all Lua files
+            [".*%.lua"] = "lua_no_ts", 
+          },
+        },
+      })
+      
+      -- Create a new filetype handler that doesn't use Tree-sitter
+      vim.filetype.add({
+        extension = {
+          lua = function()
+            -- Prevent Tree-sitter based ftplugin from running
+            vim.b.did_ftplugin_treesitter_lua = 1
+            
+            -- Return a string to set the filetype
+            return "lua"
+          end
+        },
+      })
+      
+      -- Register autocmds for additional safety
+      local ft_group = vim.api.nvim_create_augroup("FiletypeNoTS", { clear = true })
+      
+      -- Add autocommand to disable Tree-sitter for Lua files
+      vim.api.nvim_create_autocmd({"FileType"}, {
+        pattern = "lua",
+        callback = function()
+          -- Disable Tree-sitter for Lua
+          vim.b.did_ftplugin_treesitter_lua = 1
+          vim.bo.syntax = "lua" -- Force traditional syntax
+          
+          -- Safely try to stop Tree-sitter if it's loaded
+          pcall(function() vim.treesitter.stop() end)
+        end,
+        group = ft_group,
+      })
+    end
+  },
+
  -- Startup time measurement
   {
     "dstein64/vim-startuptime",
@@ -306,4 +363,19 @@ require("lazy").setup({
 
 })
 
-
+-- Add early initialization hook to disable Tree-sitter for Lua
+vim.api.nvim_create_autocmd("VimEnter", {
+  callback = function()
+    -- Set critical variables to prevent the Lua Tree-sitter parser
+    vim.g.do_filetype_lua = 0  -- Use the old filetype.vim
+    vim.g.did_load_filetypes = 1  -- Don't load default filetype.vim
+    
+    -- Set buffer variable for any existing Lua buffers
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.bo[bufnr].filetype == "lua" then
+        vim.api.nvim_buf_set_var(bufnr, "did_ftplugin_treesitter_lua", 1)
+      end
+    end
+  end,
+  once = true,
+})
