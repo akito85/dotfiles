@@ -29,18 +29,18 @@ local original_settings = {
 -- Enhanced large file detection and optimization
 local function optimize_for_file_size(file_path)
   local file_size = vim.fn.getfsize(file_path)
-  
+
   if file_size < 0 then return end
-  
+
   vim.b.large_file = false  -- Reset per buffer
-  
+
   if file_size > medium_file_threshold then
     vim.opt_local.swapfile = false
     vim.opt_local.undofile = false
     vim.opt_local.backupcopy = "yes"
     vim.opt_local.list = false
     vim.opt_local.foldmethod = "manual"
-    
+
     if vim.lsp then
       local clients = vim.lsp.get_active_clients({ buffer = 0 })
       for _, client in pairs(clients) do
@@ -49,7 +49,7 @@ local function optimize_for_file_size(file_path)
     end
     vim.notify('Medium file detected (50MB+), applying basic optimizations', vim.log.levels.INFO)
   end
-  
+
   if file_size > large_file_threshold then
     vim.opt_local.number = false
     vim.opt_local.relativenumber = false
@@ -65,7 +65,7 @@ local function optimize_for_file_size(file_path)
     vim.b.large_file = true
     vim.notify('Large file detected (500MB+), applying stronger optimizations', vim.log.levels.INFO)
   end
-  
+
   if file_size > huge_file_threshold then
     vim.opt_local.updatetime = 10000
     vim.opt_local.bufhidden = 'unload'
@@ -339,8 +339,8 @@ require("lazy").setup({
     event = { "BufReadPre", "BufNewFile" },
     config = function()
       local lspconfig = require('lspconfig')
-      local servers = { 'pyright', 'tsserver', 'clangd', 'rust_analyzer', 'gopls' }
-      
+      local servers = { 'pyright', 'ts_ls', 'clangd', 'rust_analyzer', 'gopls' }
+
       for _, lsp in ipairs(servers) do
         lspconfig[lsp].setup {
           capabilities = require('cmp_nvim_lsp').default_capabilities(),
@@ -357,7 +357,7 @@ require("lazy").setup({
           },
         }
       end
-      
+
       vim.keymap.set('n', '<leader>gd', vim.lsp.buf.definition, { noremap = true, silent = true })
       vim.keymap.set('n', '<leader>gr', vim.lsp.buf.references, { noremap = true, silent = true })
       vim.keymap.set('n', '<leader>gi', vim.lsp.buf.implementation, { noremap = true, silent = true })
@@ -369,7 +369,7 @@ require("lazy").setup({
       "hrsh7th/cmp-nvim-lsp",
     }
   },
-  
+
   -- Completion
   {
     "hrsh7th/nvim-cmp",
@@ -384,7 +384,7 @@ require("lazy").setup({
     config = function()
       local cmp = require('cmp')
       local luasnip = require('luasnip')
-      
+
       cmp.setup({
         snippet = {
           expand = function(args)
@@ -424,7 +424,7 @@ require("lazy").setup({
       })
     end
   },
-  
+
   -- Telescope (file finder, grep)
   {
     "nvim-telescope/telescope.nvim",
@@ -435,7 +435,7 @@ require("lazy").setup({
       { "<leader>fb", "<cmd>Telescope buffers<cr>", desc = "Buffers" },
       { "<leader>fh", "<cmd>Telescope help_tags<cr>", desc = "Help Tags" },
     },
-    dependencies = { 
+    dependencies = {
       "nvim-lua/plenary.nvim",
     },
     config = function()
@@ -476,7 +476,7 @@ require("lazy").setup({
       }
     end
   },
-  
+
   -- Neo-tree (file explorer)
   {
     "nvim-neo-tree/neo-tree.nvim",
@@ -529,7 +529,7 @@ require("lazy").setup({
       })
     end
   },
-  
+
   -- Theme
   {
     "folke/tokyonight.nvim",
@@ -552,7 +552,7 @@ require("lazy").setup({
       vim.cmd('colorscheme tokyonight-storm')
     end
   },
-  
+
   -- Startup time measurement
   {
     "dstein64/vim-startuptime",
@@ -568,7 +568,7 @@ require("lazy").setup({
       })
     end
   },
-  
+
   -- Only include necessary dependencies
   { "nvim-lua/plenary.nvim", lazy = true },
   { "nvim-tree/nvim-web-devicons", lazy = true },
