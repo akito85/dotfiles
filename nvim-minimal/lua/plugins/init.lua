@@ -187,19 +187,22 @@ require("lazy").setup({
             ["<C-h>"] = "toggle_preview", -- Use preview toggle as an example action
           },
         },
-        -- event_handlers = {
-        --   -- Fix for buffer clearing issue - don't unload current buffer on file_open
-        --   {
-        --     event = "file_opened",
-        --     handler = function(file_path)
-        --       -- Don't close the tree when opening a file
-        --       -- and don't clear the buffer
-        --       require("neo-tree.sources.manager").close_all()
-        --       -- Optionally focus the opened file
-        --       vim.cmd("e " .. vim.fn.fnameescape(file_path))
-        --     end
-        --   },
-        -- },
+        event_handlers = {
+          -- Fix for buffer clearing issue - don't unload current buffer on file_open
+          {
+            event = "file_opened",
+            handler = function(file_path)
+              -- Don't close the tree when opening a file
+              -- and don't clear the buffer
+              -- require("neo-tree.sources.manager").close_all()
+              -- Optionally focus the opened file
+              -- vim.cmd("e " .. vim.fn.fnameescape(file_path))
+              vim.defer_fn(function()
+                vim.cmd("e " .. vim.fn.fnameescape(file_path))
+              end, 10)
+            end
+          },
+        },
         enable_diagnostics = false,
         enable_git_status = false,
         enable_modified_markers = false,
