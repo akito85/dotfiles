@@ -2,7 +2,6 @@
 -- Loads all core configurations
 
 -- Order matters!
-require('core.treesitter')  -- Disabled lua treesitter
 require('core.performance') -- Load performance optimizations first
 require('core.options')     -- Then general options
 require('core.keymaps')     -- Then keybindings

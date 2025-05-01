@@ -1,5 +1,6 @@
 local large_file = require('utils.large_file')
 
+-- Handle file size optimizations
 vim.api.nvim_create_autocmd({"BufReadPre"}, {
   pattern = "*",
   callback = function(ev)
@@ -7,6 +8,69 @@ vim.api.nvim_create_autocmd({"BufReadPre"}, {
   end,
 })
 
+-- Add multiple layers of protection against Tree-sitter Lua parser errors
+vim.api.nvim_create_autocmd({"BufReadPre", "BufNewFile"}, {
+  pattern = "*.lua",
+  callback = function()
+    -- Set these variables before any ftplugin runs
+    vim.b.did_ftplugin_treesitter_lua = 1
+    
+    -- Disable treesitter for Lua files in Neovim 0.11
+    if vim.treesitter and vim.treesitter.stop then
+      pcall(function() vim.treesitter.stop("lua") end)
+    end
+    
+    -- Alternative approach for Neovim 0.11
+    if vim.treesitter and vim.treesitter.highlighter then
+      pcall(function()
+        local highlighter = vim.treesitter.highlighter.active[vim.api.nvim_get_current_buf()]
+        if highlighter then
+          highlighter:destroy()
+        end
+      end)
+    end
+    
+    -- Set syntax highlighting explicitly
+    vim.cmd("syntax enable")
+    vim.cmd("set syntax=lua")
+  end,
+  group = ts_fix_group,
+  desc = "Disable treesitter for Lua files",
+})
+
+-- Add additional fix for Neo-tree buffer handling
+vim.api.nvim_create_autocmd("BufAdd", {
+  pattern = "*",
+  callback = function(args)
+    -- Check if the buffer is a Lua file
+    if vim.fn.fnamemodify(vim.api.nvim_buf_get_name(args.buf), ":e") == "lua" then
+      -- Apply fix to the new buffer
+      vim.b.did_ftplugin_treesitter_lua = 1
+      
+      -- Force vim's traditional syntax highlighting 
+      vim.api.nvim_buf_set_option(args.buf, "syntax", "lua")
+      
+      -- Disable treesitter for this buffer in Neovim 0.11
+      if vim.treesitter and vim.treesitter.stop then
+        pcall(function() vim.treesitter.stop("lua", args.buf) end)
+      end
+      
+      -- Alternative approach for Neovim 0.11
+      if vim.treesitter and vim.treesitter.highlighter then
+        pcall(function()
+          local highlighter = vim.treesitter.highlighter.active[args.buf]
+          if highlighter then
+            highlighter:destroy()
+          end
+        end)
+      end
+    end
+  end,
+  group = ts_fix_group,
+  desc = "Handle Lua files in Neo-tree",
+})
+
+-- Display startup time
 local startup_time_displayed = false
 local function display_startup_time()
   if not startup_time_displayed then
@@ -22,36 +86,31 @@ vim.api.nvim_create_autocmd("VimEnter", {
       display_startup_time()
     end, 100)
   end,
+  desc = "Display startup time",
 })
 
+-- Manage cursor line in insert mode
 vim.api.nvim_create_autocmd({"InsertEnter"}, {
-  callback = function() vim.opt.cursorline = false end
-})
-vim.api.nvim_create_autocmd({"InsertLeave"}, {
-  callback = function() vim.opt.cursorline = true end
+  callback = function() vim.opt.cursorline = false end,
+  desc = "Hide cursor line in insert mode",
 })
 
+vim.api.nvim_create_autocmd({"InsertLeave"}, {
+  callback = function() vim.opt.cursorline = true end,
+  desc = "Show cursor line outside insert mode",
+})
+
+-- For all buffers, set default filetype if empty
 vim.api.nvim_create_autocmd({"BufRead", "BufNewFile"}, {
   pattern = "*",
   callback = function()
-    vim.treesitter.stop() -- Stop Tree-sitter for the current buffer
+    -- Don't use vim.treesitter.stop() as it doesn't exist
+    -- Instead, make sure treesitter is not used
     if vim.bo.filetype == '' then
       vim.bo.filetype = 'text'
     end
   end,
-})
-
--- Create a dedicated group for Tree-sitter fixes
-local ts_fix_group = vim.api.nvim_create_augroup("TreesitterFixes", { clear = true })
-
--- Add multiple layers of protection against Tree-sitter Lua parser errors
-vim.api.nvim_create_autocmd({"BufReadPre", "BufNewFile"}, {
-  pattern = "*.lua",
-  callback = function()
-    -- Set these variables before any ftplugin runs
-    vim.b.did_ftplugin_treesitter_lua = 1
-  end,
-  group = ts_fix_group,
+  desc = "Set default filetype for empty buffers",
 })
 
 -- Add additional fix for Neo-tree buffer handling
@@ -62,16 +121,24 @@ vim.api.nvim_create_autocmd("BufAdd", {
     if vim.fn.fnamemodify(vim.api.nvim_buf_get_name(args.buf), ":e") == "lua" then
       -- Apply fix to the new buffer
       vim.b.did_ftplugin_treesitter_lua = 1
-      
-      -- Force vim's traditional syntax highlighting 
+
+      -- Force vim's traditional syntax highlighting
       vim.api.nvim_buf_set_option(args.buf, "syntax", "lua")
+
+      -- Disable treesitter for this buffer properly
+      if vim.treesitter and vim.treesitter.language then
+        pcall(function() vim.treesitter.language.require_language("lua", nil) end)
+      end
     end
   end,
   group = ts_fix_group,
+  desc = "Handle Lua files in Neo-tree",
 })
 
+-- Performance autocmds
 local autocmd_group = vim.api.nvim_create_augroup("PerformanceAutocmds", { clear = true })
 
+-- Remove trailing whitespace on save
 vim.api.nvim_create_autocmd("BufWritePre", {
   group = autocmd_group,
   pattern = "*",
@@ -80,8 +147,10 @@ vim.api.nvim_create_autocmd("BufWritePre", {
     vim.cmd([[%s/\s\+$//e]])
     vim.api.nvim_win_set_cursor(0, cursor_pos)
   end,
+  desc = "Remove trailing whitespace",
 })
 
+-- Auto save session
 vim.api.nvim_create_autocmd("BufWritePost", {
   group = autocmd_group,
   pattern = "*",
@@ -90,8 +159,10 @@ vim.api.nvim_create_autocmd("BufWritePost", {
       vim.cmd("silent! mksession! " .. vim.fn.stdpath("data") .. "/sessions/autosave.vim")
     end
   end,
+  desc = "Auto save session",
 })
 
+-- Notify on large file mode
 vim.api.nvim_create_autocmd("VimEnter", {
   pattern = "*",
   callback = function()
@@ -101,24 +172,5 @@ vim.api.nvim_create_autocmd("VimEnter", {
       end
     end, 100)
   end,
+  desc = "Large file notification",
 })
-
-function _G.check_memory_usage()
-  local stats = vim.loop.resident_set_memory()
-  local memory_mb = math.floor(stats / 1024 / 1024 * 100) / 100
-  vim.notify(string.format("Neovim memory usage: %.2f MB", memory_mb), vim.log.levels.INFO)
-  return memory_mb
-end
-
-vim.api.nvim_create_autocmd("VimEnter", {
-  callback = function()
-    vim.defer_fn(function()
-      _G.check_memory_usage()
-    end, 500)
-  end,
-})
-
-local gc_timer = vim.loop.new_timer()
-gc_timer:start(30000, 30000, vim.schedule_wrap(function()
-  collectgarbage("collect")
-end))
