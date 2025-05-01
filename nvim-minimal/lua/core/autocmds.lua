@@ -1,5 +1,8 @@
 local large_file = require('utils.large_file')
 
+-- Define augroup for TreeSitter fixes
+local ts_fix_group = vim.api.nvim_create_augroup("TreeSitterFixes", { clear = true })
+
 -- Handle file size optimizations
 vim.api.nvim_create_autocmd({"BufReadPre"}, {
   pattern = "*",
@@ -8,66 +11,55 @@ vim.api.nvim_create_autocmd({"BufReadPre"}, {
   end,
 })
 
--- Add multiple layers of protection against Tree-sitter Lua parser errors
+-- Modern approach to disable TreeSitter for Lua files in Neovim 0.11
 vim.api.nvim_create_autocmd({"BufReadPre", "BufNewFile"}, {
   pattern = "*.lua",
   callback = function()
     -- Set these variables before any ftplugin runs
     vim.b.did_ftplugin_treesitter_lua = 1
     
-    -- Disable treesitter for Lua files in Neovim 0.11
-    if vim.treesitter and vim.treesitter.stop then
-      pcall(function() vim.treesitter.stop("lua") end)
-    end
-    
-    -- Alternative approach for Neovim 0.11
-    if vim.treesitter and vim.treesitter.highlighter then
+    -- Disable TreeSitter for this buffer (Neovim 0.11 method)
+    if vim.treesitter then
+      -- Disable the TreeSitter injections for Lua
       pcall(function()
-        local highlighter = vim.treesitter.highlighter.active[vim.api.nvim_get_current_buf()]
-        if highlighter then
-          highlighter:destroy()
+        -- Remove the TreeSitter parser from this buffer
+        local buf = vim.api.nvim_get_current_buf()
+        if vim.treesitter.get_parser and vim.treesitter.get_parser(buf) then
+          vim.treesitter.get_parser(buf):destroy()
         end
+        
+        -- Ensure Vim's standard syntax highlighting is used instead
+        vim.cmd("syntax enable")
+        vim.bo.syntax = "lua"
       end)
     end
-    
-    -- Set syntax highlighting explicitly
-    vim.cmd("syntax enable")
-    vim.cmd("set syntax=lua")
   end,
   group = ts_fix_group,
-  desc = "Disable treesitter for Lua files",
+  desc = "Disable TreeSitter for Lua files",
 })
 
--- Add additional fix for Neo-tree buffer handling
+-- Handle new buffers for Lua files
 vim.api.nvim_create_autocmd("BufAdd", {
   pattern = "*",
   callback = function(args)
     -- Check if the buffer is a Lua file
     if vim.fn.fnamemodify(vim.api.nvim_buf_get_name(args.buf), ":e") == "lua" then
       -- Apply fix to the new buffer
-      vim.b.did_ftplugin_treesitter_lua = 1
+      vim.b[args.buf].did_ftplugin_treesitter_lua = 1
       
-      -- Force vim's traditional syntax highlighting 
+      -- Force Vim's traditional syntax highlighting
       vim.api.nvim_buf_set_option(args.buf, "syntax", "lua")
       
-      -- Disable treesitter for this buffer in Neovim 0.11
-      if vim.treesitter and vim.treesitter.stop then
-        pcall(function() vim.treesitter.stop("lua", args.buf) end)
-      end
-      
-      -- Alternative approach for Neovim 0.11
-      if vim.treesitter and vim.treesitter.highlighter then
-        pcall(function()
-          local highlighter = vim.treesitter.highlighter.active[args.buf]
-          if highlighter then
-            highlighter:destroy()
-          end
-        end)
-      end
+      -- Disable TreeSitter for this buffer (Neovim 0.11 method)
+      pcall(function()
+        if vim.treesitter.get_parser and vim.treesitter.get_parser(args.buf) then
+          vim.treesitter.get_parser(args.buf):destroy()
+        end
+      end)
     end
   end,
   group = ts_fix_group,
-  desc = "Handle Lua files in Neo-tree",
+  desc = "Handle Lua files in buffers",
 })
 
 -- Display startup time
@@ -104,8 +96,6 @@ vim.api.nvim_create_autocmd({"InsertLeave"}, {
 vim.api.nvim_create_autocmd({"BufRead", "BufNewFile"}, {
   pattern = "*",
   callback = function()
-    -- Don't use vim.treesitter.stop() as it doesn't exist
-    -- Instead, make sure treesitter is not used
     if vim.bo.filetype == '' then
       vim.bo.filetype = 'text'
     end
@@ -113,34 +103,12 @@ vim.api.nvim_create_autocmd({"BufRead", "BufNewFile"}, {
   desc = "Set default filetype for empty buffers",
 })
 
--- Add additional fix for Neo-tree buffer handling
-vim.api.nvim_create_autocmd("BufAdd", {
-  pattern = "*",
-  callback = function(args)
-    -- Check if the buffer is a Lua file
-    if vim.fn.fnamemodify(vim.api.nvim_buf_get_name(args.buf), ":e") == "lua" then
-      -- Apply fix to the new buffer
-      vim.b.did_ftplugin_treesitter_lua = 1
-
-      -- Force vim's traditional syntax highlighting
-      vim.api.nvim_buf_set_option(args.buf, "syntax", "lua")
-
-      -- Disable treesitter for this buffer properly
-      if vim.treesitter and vim.treesitter.language then
-        pcall(function() vim.treesitter.language.require_language("lua", nil) end)
-      end
-    end
-  end,
-  group = ts_fix_group,
-  desc = "Handle Lua files in Neo-tree",
-})
-
 -- Performance autocmds
-local autocmd_group = vim.api.nvim_create_augroup("PerformanceAutocmds", { clear = true })
+local performance_group = vim.api.nvim_create_augroup("PerformanceAutocmds", { clear = true })
 
 -- Remove trailing whitespace on save
 vim.api.nvim_create_autocmd("BufWritePre", {
-  group = autocmd_group,
+  group = performance_group,
   pattern = "*",
   callback = function()
     local cursor_pos = vim.api.nvim_win_get_cursor(0)
@@ -152,10 +120,10 @@ vim.api.nvim_create_autocmd("BufWritePre", {
 
 -- Auto save session
 vim.api.nvim_create_autocmd("BufWritePost", {
-  group = autocmd_group,
+  group = performance_group,
   pattern = "*",
   callback = function()
-    if vim.fn.exists("g:auto_session_enabled") == 1 and vim.g.auto_session_enabled then
+    if vim.g.auto_session_enabled then
       vim.cmd("silent! mksession! " .. vim.fn.stdpath("data") .. "/sessions/autosave.vim")
     end
   end,
