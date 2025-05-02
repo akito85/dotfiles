@@ -1,105 +1,112 @@
 local large_file = require('utils.large_file')
 
--- Create a dedicated autocommand group for TreeSitter fixes
-local ts_fix_group = vim.api.nvim_create_augroup("TsLuaFix", { clear = true })
+-- Create an autocommand group for our syntax fixes
+local syntax_fix_group = vim.api.nvim_create_augroup("SyntaxFix", { clear = true })
 
--- Function to ensure native syntax highlighting is properly enabled
-local function ensure_native_syntax(bufnr)
-  -- Make sure syntax is enabled globally
-  vim.cmd("syntax enable")
+-- Force syntax on after VimEnter to ensure it's not disabled by any plugin
+vim.api.nvim_create_autocmd("VimEnter", {
+  callback = function()
+    -- Enable syntax globally
+    vim.cmd("syntax on")
+    
+    -- Set syntax settings that might help with edge cases
+    vim.opt.synmaxcol = 3000  -- Avoid syntax timeout on long lines
+    
+    -- Force syntax reload for all existing buffers
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_valid(bufnr) then
+        local ft = vim.api.nvim_buf_get_option(bufnr, "filetype")
+        if ft and ft ~= "" then
+          -- Reset syntax for this buffer
+          vim.api.nvim_buf_call(bufnr, function()
+            vim.cmd("syntax clear")
+            vim.cmd("syntax enable")
+            vim.cmd("doautocmd Syntax " .. ft)
+          end)
+        end
+      end
+    end
+  end,
+  group = syntax_fix_group,
+  desc = "Ensure syntax highlighting is enabled globally",
+})
 
-  -- Set buffer-specific syntax
-  vim.api.nvim_buf_set_option(bufnr, "syntax", "lua")
+-- Ensure syntax is enabled for each buffer when filetype is set
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "*",
+  callback = function()
+    local bufnr = vim.api.nvim_get_current_buf()
+    local ft = vim.api.nvim_buf_get_option(bufnr, "filetype")
+    
+    -- Skip empty filetypes
+    if not ft or ft == "" then
+      return
+    end
+    
+    -- Ensure syntax for this filetype
+    vim.api.nvim_buf_call(bufnr, function()
+      -- Force native syntax highlighting
+      vim.cmd("syntax enable")
+      
+      -- Handle special case for Lua
+      if ft == "lua" then
+        -- Additional settings specific to Lua
+        vim.b[bufnr].current_syntax = "lua"
+        vim.cmd("runtime! syntax/lua.vim")
+      end
+      
+      -- Reload syntax for this filetype
+      vim.cmd("doautocmd Syntax " .. ft)
+    end)
+  end,
+  group = syntax_fix_group,
+  desc = "Ensure syntax highlighting when filetype is set",
+})
 
-  -- Force re-detection of syntax
-  vim.cmd("doautocmd Syntax lua")
+-- Add a safety check for any buffer that seems to be missing syntax
+vim.api.nvim_create_autocmd({"BufWinEnter", "BufEnter"}, {
+  pattern = "*",
+  callback = function()
+    local bufnr = vim.api.nvim_get_current_buf()
+    local ft = vim.api.nvim_buf_get_option(bufnr, "filetype")
+    
+    -- Skip empty filetypes or special buffers
+    if not ft or ft == "" or ft:match("^%s*$") then
+      return
+    end
+    
+    -- Check if syntax appears to be missing (no current_syntax set)
+    if not vim.b[bufnr].current_syntax then
+      vim.api.nvim_buf_call(bufnr, function()
+        -- Force native syntax highlighting
+        vim.cmd("syntax enable")
+        vim.cmd("runtime! syntax/" .. ft .. ".vim")
+        vim.cmd("doautocmd Syntax " .. ft)
+      end)
+    end
+  end,
+  group = syntax_fix_group,
+  desc = "Safety check for missing syntax highlighting",
+})
 
-  -- Ensure FileType hooks run properly
-  vim.cmd("doautocmd FileType lua")
-end
-
--- Modern approach to disable TreeSitter for Lua files in Neovim 0.11
-vim.api.nvim_create_autocmd({"BufReadPre", "BufNewFile"}, {
+-- Add specific handler for Lua files
+vim.api.nvim_create_autocmd({"BufReadPre", "BufNewFile", "BufEnter"}, {
   pattern = "*.lua",
   callback = function()
     local bufnr = vim.api.nvim_get_current_buf()
-
-    -- Set these variables before any ftplugin runs
-    vim.b.did_ftplugin_treesitter_lua = 1
-
-    -- Disable TreeSitter for this buffer (Neovim 0.11 method)
-    if vim.treesitter then
-      pcall(function()
-        -- Remove the TreeSitter parser from this buffer
-        if vim.treesitter.get_parser and vim.treesitter.get_parser(bufnr) then
-          vim.treesitter.get_parser(bufnr):destroy()
-        end
-
-        -- Prevent TreeSitter from re-attaching
-        vim.b.no_treesitter = true
-
-        -- Ensure native syntax highlighting is enabled
-        ensure_native_syntax(bufnr)
-      end)
-    end
+    
+    -- Force Lua syntax
+    vim.api.nvim_buf_call(bufnr, function()
+      vim.cmd("syntax enable")
+      vim.cmd("runtime! syntax/lua.vim")
+      
+      -- Ensure standard Lua filetype settings
+      vim.bo.syntax = "lua"
+      vim.b.current_syntax = "lua"
+    end)
   end,
-  group = ts_fix_group,
-  desc = "Disable TreeSitter for Lua files",
-})
-
--- Handle new buffers for Lua files
-vim.api.nvim_create_autocmd("BufAdd", {
-  pattern = "*",
-  callback = function(args)
-    -- Check if the buffer is a Lua file
-    if vim.fn.fnamemodify(vim.api.nvim_buf_get_name(args.buf), ":e") == "lua" then
-      -- Apply fix to the new buffer
-      vim.b[args.buf].did_ftplugin_treesitter_lua = 1
-      vim.b[args.buf].no_treesitter = true
-
-      -- Disable TreeSitter for this buffer if it exists
-      pcall(function()
-        if vim.treesitter.get_parser and vim.treesitter.get_parser(args.buf) then
-          vim.treesitter.get_parser(args.buf):destroy()
-        end
-      end)
-    end
-  end,
-  group = ts_fix_group,
-  desc = "Handle Lua files in buffers",
-})
-
--- Ensure native syntax highlighting is applied after TreeSitter is disabled
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "lua",
-  callback = function()
-    local bufnr = vim.api.nvim_get_current_buf()
-
-    -- If we've marked this buffer to avoid TreeSitter
-    if vim.b.no_treesitter then
-      -- Small delay to ensure this happens after any treesitter setup
-      vim.defer_fn(function()
-        if vim.api.nvim_buf_is_valid(bufnr) then
-          ensure_native_syntax(bufnr)
-        end
-      end, 10)
-    end
-  end,
-  group = ts_fix_group,
-  desc = "Ensure native syntax highlighting for Lua",
-})
-
--- Add a fallback for any case where syntax might be disabled
-vim.api.nvim_create_autocmd("Syntax", {
-  pattern = "lua",
-  callback = function()
-    -- If highlighting seems missing
-    if vim.b.no_treesitter and not vim.b.current_syntax then
-      ensure_native_syntax(vim.api.nvim_get_current_buf())
-    end
-  end,
-  group = ts_fix_group,
-  desc = "Fallback syntax restoration",
+  group = syntax_fix_group,
+  desc = "Special handling for Lua files",
 })
 
 -- Display startup time
