@@ -465,6 +465,254 @@ require("lazy").setup({
     end
   },
 
+-- TreeSitter configuration with performance optimizations
+  {
+    "nvim-treesitter/nvim-treesitter",
+    build = ":TSUpdate",
+    event = { "BufReadPost", "BufNewFile" },
+    cmd = { "TSUpdateSync", "TSUpdate", "TSInstall" },
+    dependencies = {
+      {
+        "nvim-treesitter/nvim-treesitter-textobjects",
+        init = function()
+          -- Disable when large file
+          local group = vim.api.nvim_create_augroup("TreesitterTextObjects", { clear = true }) 
+          vim.api.nvim_create_autocmd("BufReadPre", {
+            group = group,
+            callback = function(ev)
+              local filesize = vim.fn.getfsize(ev.match)
+              if filesize > (vim.g.LargeFile or 10) * 1024 * 1024 or filesize == -2 then
+                vim.cmd("TSBufDisable highlight")
+                vim.cmd("TSBufDisable rainbow")
+                vim.cmd("TSBufDisable indent")
+                vim.cmd("TSBufDisable incremental_selection")
+                vim.b.ts_highlight = false
+              end
+            end
+          })
+        end,
+      }
+    },
+    config = function()
+      require("nvim-treesitter.configs").setup({
+        -- Languages to install parsers for
+        ensure_installed = {
+          "rust",
+          "julia",
+          "go",
+          "javascript",
+          "typescript", 
+          "tsx",
+          "sql",
+          "yaml",
+          "json",
+          "lua",
+          "markdown",
+          "markdown_inline",
+          "python",
+          "bash",
+          "c",
+          "cpp",
+          "html",
+          "css"
+        },
+
+        -- Install parsers synchronously (only applied to `ensure_installed`)
+        sync_install = false,
+
+        -- Automatically install missing parsers when entering buffer
+        auto_install = false,
+        
+        -- Performance optimizations
+        parser_install_dir = nil, -- Use default path
+
+        -- For better performance, disable some modules for large files
+        highlight = {
+          enable = true,
+          disable = function(lang, buf)
+            -- Check if file is too large
+            local filesize = vim.fn.getfsize(vim.api.nvim_buf_get_name(buf))
+            if filesize > (vim.g.LargeFile or 10) * 1024 * 1024 or filesize == -2 then
+              return true
+            end
+            
+            -- Disable for certain languages to improve performance
+            local disable_langs = { "markdown" }
+            return vim.tbl_contains(disable_langs, lang)
+          end,
+          
+          -- Optimize highlighting
+          additional_vim_regex_highlighting = false,
+        },
+        
+        -- Indentation based on treesitter for = operator
+        indent = { 
+          enable = true,
+          disable = function(lang, buf)
+            -- Disable indent for large files
+            local filesize = vim.fn.getfsize(vim.api.nvim_buf_get_name(buf))
+            return filesize > (vim.g.LargeFile or 10) * 1024 * 1024 or filesize == -2
+          end,
+        },
+        
+        -- Tree-sitter based folding
+        fold = {
+          enable = true,
+          disable = function(lang, buf)
+            -- Disable for large files
+            local filesize = vim.fn.getfsize(vim.api.nvim_buf_get_name(buf))
+            return filesize > (vim.g.LargeFile or 10) * 1024 * 1024 or filesize == -2
+          end,
+        },
+        
+        -- Incremental selection based on the named nodes from the grammar
+        incremental_selection = {
+          enable = true,
+          disable = function(lang, buf)
+            -- Disable for large files
+            local filesize = vim.fn.getfsize(vim.api.nvim_buf_get_name(buf))
+            return filesize > (vim.g.LargeFile or 10) * 1024 * 1024 or filesize == -2
+          end,
+          keymaps = {
+            init_selection = '<CR>',
+            scope_incremental = '<CR>',
+            node_incremental = '<TAB>',
+            node_decremental = '<S-TAB>',
+          },
+        },
+        
+        textobjects = {
+          select = {
+            enable = true,
+            disable = function(lang, buf)
+              -- Disable for large files
+              local filesize = vim.fn.getfsize(vim.api.nvim_buf_get_name(buf))
+              return filesize > (vim.g.LargeFile or 10) * 1024 * 1024 or filesize == -2
+            end,
+            -- Textobject selection keymaps
+            keymaps = {
+              ["af"] = "@function.outer",
+              ["if"] = "@function.inner",
+              ["ac"] = "@class.outer",
+              ["ic"] = "@class.inner",
+              ["aa"] = "@parameter.outer",
+              ["ia"] = "@parameter.inner",
+              ["al"] = "@loop.outer",
+              ["il"] = "@loop.inner",
+              ["ai"] = "@conditional.outer",
+              ["ii"] = "@conditional.inner",
+              ["ab"] = "@block.outer",
+              ["ib"] = "@block.inner",
+            },
+            selection_modes = {
+              ['@parameter.outer'] = 'v', -- charwise
+              ['@function.outer'] = 'V', -- linewise
+              ['@class.outer'] = '<c-v>', -- blockwise
+            },
+          },
+          
+          -- Jump to textobjects
+          move = {
+            enable = true,
+            disable = function(lang, buf)
+              -- Disable for large files
+              local filesize = vim.fn.getfsize(vim.api.nvim_buf_get_name(buf))
+              return filesize > (vim.g.LargeFile or 10) * 1024 * 1024 or filesize == -2
+            end,
+            set_jumps = true, -- whether to set jumps in the jumplist
+            goto_next_start = {
+              ["]f"] = "@function.outer",
+              ["]c"] = "@class.outer",
+              ["]p"] = "@parameter.inner",
+              ["]b"] = "@block.outer",
+            },
+            goto_next_end = {
+              ["]F"] = "@function.outer",
+              ["]C"] = "@class.outer",
+            },
+            goto_previous_start = {
+              ["[f"] = "@function.outer",
+              ["[c"] = "@class.outer",
+              ["[p"] = "@parameter.inner",
+              ["[b"] = "@block.outer",
+            },
+            goto_previous_end = {
+              ["[F"] = "@function.outer",
+              ["[C"] = "@class.outer",
+            },
+          },
+          
+          -- Swap elements
+          swap = {
+            enable = true,
+            disable = function(lang, buf)
+              -- Always disable swap for large files
+              local filesize = vim.fn.getfsize(vim.api.nvim_buf_get_name(buf))
+              return filesize > 1 * 1024 * 1024 or filesize == -2  -- Only allow in files < 1MB
+            end,
+            swap_next = {
+              ["<leader>sp"] = "@parameter.inner",
+            },
+            swap_previous = {
+              ["<leader>sP"] = "@parameter.inner",
+            },
+          },
+        },
+      })
+      
+      -- Function to control TreeSitter based on file size
+      local function control_ts_for_large_files(buf)
+        local filesize = vim.fn.getfsize(vim.api.nvim_buf_get_name(buf))
+        local threshold = (vim.g.LargeFile or 10) * 1024 * 1024
+        
+        if filesize > threshold or filesize == -2 then
+          -- Disable for large files
+          vim.api.nvim_buf_set_var(buf, "ts_highlight", false)
+          pcall(function() vim.cmd("TSBufDisable highlight") end)
+          pcall(function() vim.cmd("TSBufDisable indent") end)
+          vim.notify("TreeSitter disabled for large file", vim.log.levels.INFO)
+        else
+          -- Size-based optimizations for medium files
+          if filesize > 1 * 1024 * 1024 then  -- 1MB+
+            -- Medium-size optimizations
+            vim.api.nvim_buf_set_var(buf, "ts_highlight", true)
+            pcall(function() vim.cmd("TSBufEnable highlight") end)
+            pcall(function() vim.cmd("syntax sync minlines=100 maxlines=200") end)
+            vim.notify("TreeSitter optimized for medium file", vim.log.levels.INFO)
+          else
+            -- Small file - full features
+            vim.api.nvim_buf_set_var(buf, "ts_highlight", true)
+            pcall(function() vim.cmd("TSBufEnable highlight") end)
+            pcall(function() vim.cmd("TSBufEnable indent") end)
+          end
+        end
+      end
+      
+      -- Create autocommand to detect file size and apply settings
+      local group = vim.api.nvim_create_augroup("TreeSitterPerformance", { clear = true })
+      vim.api.nvim_create_autocmd({"BufReadPost", "BufNewFile"}, {
+        group = group,
+        callback = function(ev)
+          control_ts_for_large_files(ev.buf)
+        end
+      })
+      
+      -- User command to force-enable TreeSitter (if needed)
+      vim.api.nvim_create_user_command("TSForceEnable", function()
+        pcall(function() vim.cmd("TSBufEnable highlight") end)
+        pcall(function() vim.cmd("TSBufEnable indent") end)
+        vim.notify("TreeSitter features force-enabled", vim.log.levels.INFO)
+      end, {})
+      
+      -- User command to disable TreeSitter
+      vim.api.nvim_create_user_command("TSForceDisable", function()
+        pcall(function() vim.cmd("TSBufDisable highlight") end)
+        pcall(function() vim.cmd("TSBufDisable indent") end)
+        vim.notify("TreeSitter features disabled", vim.log.levels.INFO)
+      end, {})
+    end,
+  },
+
  -- Startup time measurement
   {
     "dstein64/vim-startuptime",
