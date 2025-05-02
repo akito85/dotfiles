@@ -329,15 +329,15 @@ require("lazy").setup({
     "brooth/far.vim",
     cmd = {"Far", "Farp", "F", "Refar"},
     keys = {
-      { "<leader>fr", ":Far ", desc = "Find and Replace" },
-      { "<leader>fd", ":Fardo<CR>", desc = "Execute Far Replace" },
+      { "<leader>ffr", ":Far ", desc = "Find and Replace" },
+      { "<leader>ffd", ":Fardo<CR>", desc = "Execute Far Replace" },
     },
     init = function()
       -- Configure Far.vim for better performance
-      vim.g.far#source = "rg" -- Use ripgrep
-      vim.g.far#limit = 1000  -- Limit results
-      vim.g.far#window_width = 60
-      vim.g.far#file_mask_favorites = {'**/*.*', '**/*.lua', '**/*.vim', '**/*.txt'}
+      vim.g['far#source'] = vim.fn.executable("rg") == 1 and "rg" or "vimgrep"
+      vim.g['far#limit'] = 1000
+      vim.g['far#window_width'] = 60
+      vim.g['far#file_mask_favorites'] = { "**/*.*", "**/*.lua", "**/*.vim", "**/*.txt" }
     end
   },
   
