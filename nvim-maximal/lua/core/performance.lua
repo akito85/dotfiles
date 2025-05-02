@@ -1,17 +1,6 @@
 -- ~/.config/nvim/lua/core/performance.lua
 -- Performance optimizations for Neovim
 
-
--- Disable treesitter globally - must be set before plugins are loaded
-vim.g.loaded_nvim_treesitter = 1
-vim.g.do_filetype_lua = 1
-vim.g.did_load_filetypes = 1
-vim.g.loaded_ts_parsers = 1
-
--- Ensure vim knows we prefer legacy syntax
-vim.g.syntax_on = 1
-vim.g.syntax_lua = 1
-
 -- CRITICAL PERFORMANCE ENHANCEMENTS
 vim.opt.history = 100
 vim.opt.complete:remove('i')
