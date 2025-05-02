@@ -1,12 +1,36 @@
 -- Plugins setup with lazy.nvim
 require("lazy").setup({
+  -- Mason for LSP installation
+  { "williamboman/mason.nvim", config = function() require("mason").setup() end },
+  {
+    "williamboman/mason-lspconfig.nvim",
+    config = function()
+      require("mason-lspconfig").setup {
+        ensure_installed = { "pyright", "ts_ls", "clangd", "rust_analyzer", "gopls", "julials", "cssls", "jsonls", "yamlls" },
+      }
+    end,
+  },
+
   -- LSP
   {
     "neovim/nvim-lspconfig",
     event = { "BufReadPre", "BufNewFile" },
     config = function()
       local lspconfig = require('lspconfig')
-      local servers = { 'pyright', 'ts_ls', 'clangd', 'rust_analyzer', 'gopls' }
+      local servers = { 'pyright', 'ts_ls', 'clangd', 'rust_analyzer', 'gopls', 'julials', 'cssls', 'jsonls', 'yamlls' }
+
+      -- Disable diagnostics for large files
+      local function disable_diagnostics_for_large_files()
+        local max_filesize = 10 * 1024 * 1024 -- 10MB
+        local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(0))
+        if ok and stats and stats.size > max_filesize then
+          vim.diagnostic.disable(0)
+        end
+      end
+
+      vim.api.nvim_create_autocmd("BufReadPost", {
+        callback = disable_diagnostics_for_large_files,
+      })
 
       for _, lsp in ipairs(servers) do
         lspconfig[lsp].setup {
@@ -16,7 +40,7 @@ require("lazy").setup({
             ["textDocument/publishDiagnostics"] = vim.lsp.with(
               vim.lsp.diagnostic.on_publish_diagnostics, {
                 update_in_insert = false,
-                virtual_text = { spacing = 4, prefix = '●' },
+                virtual_text = false,
                 severity_sort = true,
                 underline = false,
               }
@@ -25,6 +49,151 @@ require("lazy").setup({
         }
       end
 
+      -- Rust-specific configuration
+      lspconfig.rust_analyzer.setup {
+        capabilities = require('cmp_nvim_lsp').default_capabilities(),
+        flags = { debounce_text_changes = 150 },
+        settings = {
+          ['rust-analyzer'] = {
+            checkOnSave = {
+              command = "clippy", -- Use clippy for linting
+            },
+            completion = {
+              autoimport = {
+                enable = true, -- Auto-import suggestions
+              },
+            },
+            diagnostics = {
+              enable = true,
+            },
+          },
+        },
+      }
+
+      -- Go-specific configuration
+      lspconfig.gopls.setup {
+        capabilities = require('cmp_nvim_lsp').default_capabilities(),
+        flags = { debounce_text_changes = 150 },
+        settings = {
+          gopls = {
+            completeUnimported = true, -- Auto-import completions
+            usePlaceholders = true, -- Add placeholders for function arguments
+            analyses = {
+              unusedparams = true,
+              shadow = true,
+            },
+          },
+        },
+      }
+
+      -- JavaScript/TypeScript-specific configuration
+      lspconfig.ts_ls.setup {
+        capabilities = require('cmp_nvim_lsp').default_capabilities(),
+        flags = { debounce_text_changes = 150 },
+        settings = {
+          typescript = {
+            inlayHints = {
+              includeInlayParameterNameHints = "all",
+              includeInlayFunctionLikeReturnTypeHints = true,
+            },
+          },
+          javascript = {
+            inlayHints = {
+              includeInlayParameterNameHints = "all",
+              includeInlayFunctionLikeReturnTypeHints = true,
+            },
+          },
+        },
+      }
+
+      -- Julia-specific configuration
+      lspconfig.julials.setup {
+        capabilities = require('cmp_nvim_lsp').default_capabilities(),
+        flags = { debounce_text_changes = 150 },
+        settings = {
+          julia = {
+            lint = {
+              enabled = true, -- Enable linting
+            },
+            completion = {
+              enable = true, -- Enable completions
+            },
+            runtime = {
+              version = "stable", -- Use the stable Julia version
+            },
+          },
+        },
+
+        -- Specify the command to start julials (optional, Mason handles this)
+        cmd = { "julia", "--project=~/.julia/environments/nvim-lspconfig", "-e", "using LanguageServer; runserver()" },
+        on_new_config = function(new_config, new_root_dir)
+          -- Ensure the Julia environment is set up
+          local julia_env = vim.fn.expand("~/.julia/environments/nvim-lspconfig")
+          if not vim.fn.isdirectory(julia_env) then
+            os.execute("julia -e 'using Pkg; Pkg.add(\"LanguageServer\"); Pkg.add(\"SymbolServer\")'")
+          end
+        end,
+      }
+
+      -- Python-specific configuration
+      lspconfig.pyright.setup {
+        capabilities = require('cmp_nvim_lsp').default_capabilities(),
+        flags = { debounce_text_changes = 150 },
+        settings = {
+          python = {
+            analysis = {
+              autoImportCompletions = true,
+              typeCheckingMode = "basic", -- Options: "off", "basic", "strict"
+              diagnosticMode = "openFilesOnly", -- Reduce diagnostics for large projects
+            },
+          },
+        },
+      }
+
+      -- C/C++-specific configuration
+      lspconfig.clangd.setup {
+        capabilities = require('cmp_nvim_lsp').default_capabilities(),
+        flags = { debounce_text_changes = 1 },
+        cmd = { "clangd", "--background-index", "--suggest-missing-includes", "--clang-tidy" },
+        filetypes = { "c", "cpp", "objc", "objcpp" },
+        settings = {
+          clangd = {
+            fallbackFlags = { "-std=c++17" }, -- Default standard for C++
+          },
+        },
+      }
+
+      -- CSS LSP
+      lspconfig.cssls.setup {
+        capabilities = require('cmp_nvim_lsp').default_capabilities(),
+        flags = { debounce_text_changes = 150 },
+      }
+
+      -- JSON LSP
+      lspconfig.jsonls.setup {
+        capabilities = require('cmp_nvim_lsp').default_capabilities(),
+        flags = { debounce_text_changes = 150 },
+        settings = {
+          json = {
+            schemas = require('schemastore').json.schemas(),
+            validate = { enable = true },
+          },
+        },
+      }
+
+      -- YAML LSP
+      lspconfig.yamlls.setup {
+        capabilities = require('cmp_nvim_lsp').default_capabilities(),
+        flags = { debounce_text_changes = 150 },
+        settings = {
+          yaml = {
+            schemas = require('schemastore').yaml.schemas(),
+            validate = true,
+          },
+        },
+      }
+
+      -- Keymaps
       vim.keymap.set('n', '<leader>gd', vim.lsp.buf.definition, { noremap = true, silent = true })
       vim.keymap.set('n', '<leader>gr', vim.lsp.buf.references, { noremap = true, silent = true })
       vim.keymap.set('n', '<leader>gi', vim.lsp.buf.implementation, { noremap = true, silent = true })
@@ -34,7 +203,8 @@ require("lazy").setup({
     end,
     dependencies = {
       "hrsh7th/cmp-nvim-lsp",
-    }
+      "b0o/schemastore.nvim",
+    },
   },
 
   -- Completion
@@ -44,13 +214,14 @@ require("lazy").setup({
     dependencies = {
       "hrsh7th/cmp-buffer",
       "hrsh7th/cmp-path",
-      -- "hrsh7th/cmp-cmdline",
       "L3MON4D3/LuaSnip",
       "saadparwaiz1/cmp_luasnip",
+      "rafamadriz/friendly-snippets",
     },
     config = function()
       local cmp = require('cmp')
       local luasnip = require('luasnip')
+      require("luasnip.loaders.from_vscode").lazy_load()
 
       cmp.setup({
         snippet = {
@@ -79,17 +250,25 @@ require("lazy").setup({
         sources = cmp.config.sources({
           { name = 'nvim_lsp', max_item_count = 10 },
           { name = 'luasnip', max_item_count = 5 },
-          { name = 'buffer', max_item_count = 8, keyword_length = 3 },
+          { name = 'buffer', max_item_count = 8, keyword_length = 4 },
           { name = 'path', max_item_count = 5 },
         }),
         performance = {
           max_view_entries = 8,
-          debounce = 100,
-          throttle = 50,
-          fetching_timeout = 80,
+          debounce = 150,
+          throttle = 80,
+          fetching_timeout = 100,
         },
       })
-    end
+
+      cmp.setup.filetype({ 'json', 'yaml' }, {
+        sources = cmp.config.sources({
+          { name = 'nvim_lsp', max_item_count = 10 },
+          { name = 'buffer', max_item_count = 8, keyword_length = 4 },
+          { name = 'path', max_item_count = 5 },
+        }),
+      })
+    end,
   },
 
   -- Telescope (file finder, grep)
@@ -308,15 +487,16 @@ require("lazy").setup({
       vim.g.gitgutter_realtime = 0
       vim.g.gitgutter_eager = 0
       vim.g.gitgutter_sign_priority = 5
-      
+      vim.g.LargeFile = 10 -- 10 MB, matches LSP max_filesize
+
       -- Disable gitgutter for large files
       local git_group = vim.api.nvim_create_augroup("GitGutterLargeFiles", { clear = true })
       vim.api.nvim_create_autocmd({"BufReadPre"}, {
         group = git_group,
         callback = function(ev)
-          local file_size = vim.fn.getfsize(ev.match)
-          if file_size > vim.g.LargeFile * 1024 * 1024 or file_size == -2 then
-            -- Disable gitgutter for this buffer
+          local max_filesize = vim.g.LargeFile * 1024 * 1024 -- Convert MB to bytes
+          local ok, stats = pcall(vim.loop.fs_stat, ev.match)
+          if ok and stats and (stats.size > max_filesize or stats.type == "directory") then
             vim.b.gitgutter_enabled = 0
           end
         end,
