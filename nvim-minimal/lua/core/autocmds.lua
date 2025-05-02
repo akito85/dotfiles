@@ -1,36 +1,45 @@
 local large_file = require('utils.large_file')
 
--- Define augroup for TreeSitter fixes
-local ts_fix_group = vim.api.nvim_create_augroup("TreeSitterFixes", { clear = true })
+-- Create a dedicated autocommand group for TreeSitter fixes
+local ts_fix_group = vim.api.nvim_create_augroup("TsLuaFix", { clear = true })
 
--- Handle file size optimizations
-vim.api.nvim_create_autocmd({"BufReadPre"}, {
-  pattern = "*",
-  callback = function(ev)
-    large_file.optimize_for_file_size(ev.file)
-  end,
-})
+-- Function to ensure native syntax highlighting is properly enabled
+local function ensure_native_syntax(bufnr)
+  -- Make sure syntax is enabled globally
+  vim.cmd("syntax enable")
+
+  -- Set buffer-specific syntax
+  vim.api.nvim_buf_set_option(bufnr, "syntax", "lua")
+
+  -- Force re-detection of syntax
+  vim.cmd("doautocmd Syntax lua")
+
+  -- Ensure FileType hooks run properly
+  vim.cmd("doautocmd FileType lua")
+end
 
 -- Modern approach to disable TreeSitter for Lua files in Neovim 0.11
 vim.api.nvim_create_autocmd({"BufReadPre", "BufNewFile"}, {
   pattern = "*.lua",
   callback = function()
+    local bufnr = vim.api.nvim_get_current_buf()
+
     -- Set these variables before any ftplugin runs
     vim.b.did_ftplugin_treesitter_lua = 1
-    
+
     -- Disable TreeSitter for this buffer (Neovim 0.11 method)
     if vim.treesitter then
-      -- Disable the TreeSitter injections for Lua
       pcall(function()
         -- Remove the TreeSitter parser from this buffer
-        local buf = vim.api.nvim_get_current_buf()
-        if vim.treesitter.get_parser and vim.treesitter.get_parser(buf) then
-          vim.treesitter.get_parser(buf):destroy()
+        if vim.treesitter.get_parser and vim.treesitter.get_parser(bufnr) then
+          vim.treesitter.get_parser(bufnr):destroy()
         end
-        
-        -- Ensure Vim's standard syntax highlighting is used instead
-        vim.cmd("syntax enable")
-        vim.bo.syntax = "lua"
+
+        -- Prevent TreeSitter from re-attaching
+        vim.b.no_treesitter = true
+
+        -- Ensure native syntax highlighting is enabled
+        ensure_native_syntax(bufnr)
       end)
     end
   end,
@@ -46,11 +55,9 @@ vim.api.nvim_create_autocmd("BufAdd", {
     if vim.fn.fnamemodify(vim.api.nvim_buf_get_name(args.buf), ":e") == "lua" then
       -- Apply fix to the new buffer
       vim.b[args.buf].did_ftplugin_treesitter_lua = 1
-      
-      -- Force Vim's traditional syntax highlighting
-      vim.api.nvim_buf_set_option(args.buf, "syntax", "lua")
-      
-      -- Disable TreeSitter for this buffer (Neovim 0.11 method)
+      vim.b[args.buf].no_treesitter = true
+
+      -- Disable TreeSitter for this buffer if it exists
       pcall(function()
         if vim.treesitter.get_parser and vim.treesitter.get_parser(args.buf) then
           vim.treesitter.get_parser(args.buf):destroy()
@@ -60,6 +67,39 @@ vim.api.nvim_create_autocmd("BufAdd", {
   end,
   group = ts_fix_group,
   desc = "Handle Lua files in buffers",
+})
+
+-- Ensure native syntax highlighting is applied after TreeSitter is disabled
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "lua",
+  callback = function()
+    local bufnr = vim.api.nvim_get_current_buf()
+
+    -- If we've marked this buffer to avoid TreeSitter
+    if vim.b.no_treesitter then
+      -- Small delay to ensure this happens after any treesitter setup
+      vim.defer_fn(function()
+        if vim.api.nvim_buf_is_valid(bufnr) then
+          ensure_native_syntax(bufnr)
+        end
+      end, 10)
+    end
+  end,
+  group = ts_fix_group,
+  desc = "Ensure native syntax highlighting for Lua",
+})
+
+-- Add a fallback for any case where syntax might be disabled
+vim.api.nvim_create_autocmd("Syntax", {
+  pattern = "lua",
+  callback = function()
+    -- If highlighting seems missing
+    if vim.b.no_treesitter and not vim.b.current_syntax then
+      ensure_native_syntax(vim.api.nvim_get_current_buf())
+    end
+  end,
+  group = ts_fix_group,
+  desc = "Fallback syntax restoration",
 })
 
 -- Display startup time
