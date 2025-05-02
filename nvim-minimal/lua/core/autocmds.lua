@@ -3,6 +3,45 @@ local large_file = require('utils.large_file')
 -- Create an autocommand group for our syntax fixes
 local syntax_fix_group = vim.api.nvim_create_augroup("SyntaxFix", { clear = true })
 
+-- Languages we want to ensure have syntax highlighting
+local target_languages = {
+  lua = { extensions = { "lua" } },
+  javascript = { extensions = { "js", "jsx", "mjs", "cjs" } },
+  typescript = { extensions = { "ts", "tsx" } },
+  rust = { extensions = { "rs" } },
+  go = { extensions = { "go" } },
+  python = { extensions = { "py", "pyw" } },
+  julia = { extensions = { "jl" } },
+  sql = { extensions = {"sql"} },
+}
+
+-- Function to force syntax highlighting for a specific filetype
+local function force_syntax(bufnr, filetype)
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+  
+  vim.api.nvim_buf_call(bufnr, function()
+    -- Clear any existing syntax to avoid conflicts
+    vim.cmd("syntax clear")
+    
+    -- Enable syntax globally
+    vim.cmd("syntax enable")
+    
+    -- Set buffer-specific syntax
+    vim.bo.syntax = filetype
+    
+    -- Ensure the syntax file is loaded
+    vim.cmd("runtime! syntax/" .. filetype .. ".vim")
+    
+    -- Set current_syntax to prevent reloading
+    vim.b.current_syntax = filetype
+    
+    -- Force syntax events
+    vim.cmd("doautocmd Syntax " .. filetype)
+  end)
+end
+
 -- Force syntax on after VimEnter to ensure it's not disabled by any plugin
 vim.api.nvim_create_autocmd("VimEnter", {
   callback = function()
@@ -17,18 +56,47 @@ vim.api.nvim_create_autocmd("VimEnter", {
       if vim.api.nvim_buf_is_valid(bufnr) then
         local ft = vim.api.nvim_buf_get_option(bufnr, "filetype")
         if ft and ft ~= "" then
-          -- Reset syntax for this buffer
-          vim.api.nvim_buf_call(bufnr, function()
-            vim.cmd("syntax clear")
-            vim.cmd("syntax enable")
-            vim.cmd("doautocmd Syntax " .. ft)
-          end)
+          force_syntax(bufnr, ft)
         end
       end
     end
   end,
   group = syntax_fix_group,
   desc = "Ensure syntax highlighting is enabled globally",
+})
+
+-- Create pattern matching for our target language extensions
+local file_patterns = {}
+for lang, info in pairs(target_languages) do
+  for _, ext in ipairs(info.extensions) do
+    table.insert(file_patterns, "*." .. ext)
+  end
+end
+
+-- Special handling for target language files
+vim.api.nvim_create_autocmd({"BufReadPre", "BufNewFile", "BufEnter"}, {
+  pattern = file_patterns,
+  callback = function()
+    local bufnr = vim.api.nvim_get_current_buf()
+    local filename = vim.api.nvim_buf_get_name(bufnr)
+    local ext = vim.fn.fnamemodify(filename, ":e"):lower()
+    
+    -- Find the matching language for this extension
+    for lang, info in pairs(target_languages) do
+      for _, lang_ext in ipairs(info.extensions) do
+        if ext == lang_ext then
+          -- Force the correct filetype
+          vim.bo.filetype = lang
+          
+          -- Force syntax highlighting
+          force_syntax(bufnr, lang)
+          break
+        end
+      end
+    end
+  end,
+  group = syntax_fix_group,
+  desc = "Special handling for target language files",
 })
 
 -- Ensure syntax is enabled for each buffer when filetype is set
@@ -43,19 +111,17 @@ vim.api.nvim_create_autocmd("FileType", {
       return
     end
     
-    -- Ensure syntax for this filetype
-    vim.api.nvim_buf_call(bufnr, function()
-      -- Force native syntax highlighting
-      vim.cmd("syntax enable")
-      
-      -- Handle special case for Lua
-      if ft == "lua" then
-        -- Additional settings specific to Lua
-        vim.b[bufnr].current_syntax = "lua"
-        vim.cmd("runtime! syntax/lua.vim")
+    -- Check if this is one of our target languages
+    for lang, _ in pairs(target_languages) do
+      if ft == lang then
+        force_syntax(bufnr, ft)
+        return
       end
-      
-      -- Reload syntax for this filetype
+    end
+    
+    -- For other filetypes, still ensure basic syntax
+    vim.api.nvim_buf_call(bufnr, function()
+      vim.cmd("syntax enable")
       vim.cmd("doautocmd Syntax " .. ft)
     end)
   end,
@@ -77,48 +143,51 @@ vim.api.nvim_create_autocmd({"BufWinEnter", "BufEnter"}, {
     
     -- Check if syntax appears to be missing (no current_syntax set)
     if not vim.b[bufnr].current_syntax then
-      vim.api.nvim_buf_call(bufnr, function()
-        -- Force native syntax highlighting
-        vim.cmd("syntax enable")
-        vim.cmd("runtime! syntax/" .. ft .. ".vim")
-        vim.cmd("doautocmd Syntax " .. ft)
-      end)
+      force_syntax(bufnr, ft)
     end
   end,
   group = syntax_fix_group,
   desc = "Safety check for missing syntax highlighting",
 })
 
--- Add specific handler for Lua files
-vim.api.nvim_create_autocmd({"BufReadPre", "BufNewFile", "BufEnter"}, {
-  pattern = "*.lua",
-  callback = function()
-    local bufnr = vim.api.nvim_get_current_buf()
-    
-    -- Force Lua syntax
-    vim.api.nvim_buf_call(bufnr, function()
-      vim.cmd("syntax enable")
-      vim.cmd("runtime! syntax/lua.vim")
-      
-      -- Ensure standard Lua filetype settings
-      vim.bo.syntax = "lua"
-      vim.b.current_syntax = "lua"
-    end)
+-- Add specific commands for manually triggering syntax highlighting
+vim.api.nvim_create_user_command("ForceSyntax", function(opts)
+  local bufnr = vim.api.nvim_get_current_buf()
+  local ft = opts.args ~= "" and opts.args or vim.bo.filetype
+  if ft and ft ~= "" then
+    force_syntax(bufnr, ft)
+    print("Syntax highlighting forced for " .. ft)
+  else
+    print("No filetype specified")
+  end
+end, {
+  nargs = "?",
+  desc = "Force syntax highlighting for current buffer or specified filetype",
+  complete = function(_, _, _)
+    local completions = {}
+    for lang, _ in pairs(target_languages) do
+      table.insert(completions, lang)
+    end
+    return completions
   end,
-  group = syntax_fix_group,
-  desc = "Special handling for Lua files",
 })
 
--- Display startup time
-local startup_time_displayed = false
-local function display_startup_time()
-  if not startup_time_displayed then
-    local startuptime = vim.fn.system("nvim --headless --noplugin --startuptime /tmp/nvim_startuptime -c 'quit' && tail -n 1 /tmp/nvim_startuptime | cut -d ' ' -f1"):gsub("%s+", "")
-    vim.notify(string.format("Neovim startup time: %s ms", startuptime), vim.log.levels.INFO)
-    startup_time_displayed = true
-  end
-end
-
+-- Ensure runtime files for target languages are sourced
+vim.api.nvim_create_autocmd("ColorScheme", {
+  callback = function()
+    -- Reload syntax files after colorscheme changes to ensure they take effect
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_valid(bufnr) then
+        local ft = vim.api.nvim_buf_get_option(bufnr, "filetype")
+        if ft and ft ~= "" and target_languages[ft] then
+          force_syntax(bufnr, ft)
+        end
+      end
+    end
+  end,
+  group = syntax_fix_group,
+  desc = "Ensure syntax highlighting after colorscheme changes",
+})
 vim.api.nvim_create_autocmd("VimEnter", {
   callback = function()
     vim.defer_fn(function()
