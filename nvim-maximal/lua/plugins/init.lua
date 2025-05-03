@@ -1,5 +1,8 @@
 -- Plugins setup with lazy.nvim
 require("lazy").setup({
+  -- centered column mode or zen
+  {"shortcuts/no-neck-pain.nvim", version = "*"},
+  
   -- Mason for LSP installation
   { "williamboman/mason.nvim", config = function() require("mason").setup() end },
   {
