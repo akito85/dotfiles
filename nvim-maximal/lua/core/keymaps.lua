@@ -64,3 +64,5 @@ vim.keymap.set('n', '<C-u>', '<C-u>zz', { noremap = true, silent = true })
 vim.keymap.set('n', 'n', 'nzzzv', { noremap = true, silent = true })
 vim.keymap.set('n', 'N', 'Nzzzv', { noremap = true, silent = true })
 
+-- Center the view
+vim.keymap.set('n', '<Leader>n', '<cmd>NoNeckPain<cr>', { noremap = true, silent = true, desc = 'Toggle NoNeckPain' })
