@@ -2,7 +2,7 @@
 require("lazy").setup({
   -- centered column mode or zen
   {"shortcuts/no-neck-pain.nvim", version = "*"},
-  
+
   -- Mason for LSP installation
   { "williamboman/mason.nvim", config = function() require("mason").setup() end },
   {
@@ -12,6 +12,20 @@ require("lazy").setup({
         ensure_installed = { "pyright", "ts_ls", "clangd", "rust_analyzer", "gopls", "julials", "cssls", "jsonls", "yamlls" },
       }
     end,
+  },
+
+  -- nvim tmux navigation
+  {
+    'numToStr/Navigator.nvim',
+    config = function()
+      require('Navigator').setup()
+
+      -- Setup keymaps
+      vim.keymap.set({'n', 't'}, '<C-h>', '<CMD>NavigatorLeft<CR>')
+      vim.keymap.set({'n', 't'}, '<C-l>', '<CMD>NavigatorRight<CR>')
+      vim.keymap.set({'n', 't'}, '<C-k>', '<CMD>NavigatorUp<CR>')
+      vim.keymap.set({'n', 't'}, '<C-j>', '<CMD>NavigatorDown<CR>')
+    end
   },
 
   -- LSP
@@ -479,7 +493,7 @@ require("lazy").setup({
     end
   },
 
-  
+
   -- vim-gigutter - Lightweight git gutter for large files
   {
     "airblade/vim-gitgutter",
@@ -506,7 +520,7 @@ require("lazy").setup({
       })
     end
   },
-  
+
   -- far.vim - Find and replace with performance in mind
   {
     "brooth/far.vim",
@@ -523,7 +537,7 @@ require("lazy").setup({
       vim.g['far#file_mask_favorites'] = { "**/*.*", "**/*.lua", "**/*.vim", "**/*.txt" }
     end
   },
-  
+
   -- nvim-lsp-file-operations - LSP-aware file operations
   {
     "antosha417/nvim-lsp-file-operations",
@@ -541,7 +555,7 @@ require("lazy").setup({
       })
     end
   },
-  
+
   -- Low-resource status line
   {
     "nvim-lualine/lualine.nvim",
@@ -597,12 +611,12 @@ require("lazy").setup({
               },
               filetypes = {'*'}
             }
-            
+
             return large_file_extension
           end
         }
       }
-      
+
       -- Create a custom status line for large files
       local status_group = vim.api.nvim_create_augroup("StatuslineLargeFiles", { clear = true })
       vim.api.nvim_create_autocmd({"BufReadPre", "FileReadPre"}, {
@@ -618,7 +632,7 @@ require("lazy").setup({
       })
     end
   },
-  
+
   -- buffer manager that's light on resources
   {
     "j-morano/buffer_manager.nvim",
@@ -659,7 +673,7 @@ require("lazy").setup({
         "nvim-treesitter/nvim-treesitter-textobjects",
         init = function()
           -- Disable when large file
-          local group = vim.api.nvim_create_augroup("TreesitterTextObjects", { clear = true }) 
+          local group = vim.api.nvim_create_augroup("TreesitterTextObjects", { clear = true })
           vim.api.nvim_create_autocmd("BufReadPre", {
             group = group,
             callback = function(ev)
@@ -684,7 +698,7 @@ require("lazy").setup({
           "julia",
           "go",
           "javascript",
-          "typescript", 
+          "typescript",
           "tsx",
           "sql",
           "yaml",
@@ -705,7 +719,7 @@ require("lazy").setup({
 
         -- Automatically install missing parsers when entering buffer
         auto_install = false,
-        
+
         -- Performance optimizations
         parser_install_dir = nil, -- Use default path
 
@@ -718,18 +732,18 @@ require("lazy").setup({
             if filesize > (vim.g.LargeFile or 10) * 1024 * 1024 or filesize == -2 then
               return true
             end
-            
+
             -- Disable for certain languages to improve performance
             local disable_langs = { "markdown" }
             return vim.tbl_contains(disable_langs, lang)
           end,
-          
+
           -- Optimize highlighting
           additional_vim_regex_highlighting = false,
         },
-        
+
         -- Indentation based on treesitter for = operator
-        indent = { 
+        indent = {
           enable = true,
           disable = function(lang, buf)
             -- Disable indent for large files
@@ -737,7 +751,7 @@ require("lazy").setup({
             return filesize > (vim.g.LargeFile or 10) * 1024 * 1024 or filesize == -2
           end,
         },
-        
+
         -- Tree-sitter based folding
         fold = {
           enable = true,
@@ -747,7 +761,7 @@ require("lazy").setup({
             return filesize > (vim.g.LargeFile or 10) * 1024 * 1024 or filesize == -2
           end,
         },
-        
+
         -- Incremental selection based on the named nodes from the grammar
         incremental_selection = {
           enable = true,
@@ -763,7 +777,7 @@ require("lazy").setup({
             node_decremental = '<S-TAB>',
           },
         },
-        
+
         textobjects = {
           select = {
             enable = true,
@@ -793,7 +807,7 @@ require("lazy").setup({
               ['@class.outer'] = '<c-v>', -- blockwise
             },
           },
-          
+
           -- Jump to textobjects
           move = {
             enable = true,
@@ -824,7 +838,7 @@ require("lazy").setup({
               ["[C"] = "@class.outer",
             },
           },
-          
+
           -- Swap elements
           swap = {
             enable = true,
@@ -842,12 +856,12 @@ require("lazy").setup({
           },
         },
       })
-      
+
       -- Function to control TreeSitter based on file size
       local function control_ts_for_large_files(buf)
         local filesize = vim.fn.getfsize(vim.api.nvim_buf_get_name(buf))
         local threshold = (vim.g.LargeFile or 10) * 1024 * 1024
-        
+
         if filesize > threshold or filesize == -2 then
           -- Disable for large files
           vim.api.nvim_buf_set_var(buf, "ts_highlight", false)
@@ -870,7 +884,7 @@ require("lazy").setup({
           end
         end
       end
-      
+
       -- Create autocommand to detect file size and apply settings
       local group = vim.api.nvim_create_augroup("TreeSitterPerformance", { clear = true })
       vim.api.nvim_create_autocmd({"BufReadPost", "BufNewFile"}, {
@@ -879,14 +893,14 @@ require("lazy").setup({
           control_ts_for_large_files(ev.buf)
         end
       })
-      
+
       -- User command to force-enable TreeSitter (if needed)
       vim.api.nvim_create_user_command("TSForceEnable", function()
         pcall(function() vim.cmd("TSBufEnable highlight") end)
         pcall(function() vim.cmd("TSBufEnable indent") end)
         vim.notify("TreeSitter features force-enabled", vim.log.levels.INFO)
       end, {})
-      
+
       -- User command to disable TreeSitter
       vim.api.nvim_create_user_command("TSForceDisable", function()
         pcall(function() vim.cmd("TSBufDisable highlight") end)
