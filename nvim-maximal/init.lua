@@ -24,9 +24,3 @@ vim.opt.rtp:prepend(lazypath)
 
 -- Load plugins
 require('plugins')
-
--- Display startup performance metrics
-vim.defer_fn(function()
-  if _G.check_memory_usage then _G.check_memory_usage() end
-end, 500)
-

@@ -36,19 +36,6 @@ require("lazy").setup({
       local lspconfig = require('lspconfig')
       local servers = { 'pyright', 'ts_ls', 'clangd', 'rust_analyzer', 'gopls', 'julials', 'cssls', 'jsonls', 'yamlls' }
 
-      -- Disable diagnostics for large files
-      local function disable_diagnostics_for_large_files()
-        local max_filesize = 10 * 1024 * 1024 -- 10MB
-        local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(0))
-        if ok and stats and stats.size > max_filesize then
-          vim.diagnostic.disable(0)
-        end
-      end
-
-      vim.api.nvim_create_autocmd("BufReadPost", {
-        callback = disable_diagnostics_for_large_files,
-      })
-
       for _, lsp in ipairs(servers) do
         lspconfig[lsp].setup {
           capabilities = require('cmp_nvim_lsp').default_capabilities(),
@@ -991,22 +978,6 @@ require("lazy").setup({
         vim.notify("TreeSitter features disabled", vim.log.levels.INFO)
       end, { desc = "Force disable TreeSitter features" })
     end,
-  },
-
-  -- Startup time measurement
-  {
-    "dstein64/vim-startuptime",
-    cmd = "StartupTime",
-    init = function()
-      -- Execute startup time display on VimEnter
-      vim.api.nvim_create_autocmd("VimEnter", {
-        callback = function()
-          vim.defer_fn(function()
-            display_startup_time()
-          end, 100)
-        end,
-      })
-    end
   },
 
   -- Only include necessary dependencies

@@ -1,20 +1,3 @@
--- ~/.config/nvim/lua/core/options.lua
--- Core Neovim options
-
--- Store original settings to restore when needed (for large file mode toggle)
-vim.g.original_settings = {
-  number = vim.opt.number:get(),
-  relativenumber = vim.opt.relativenumber:get(),
-  signcolumn = vim.opt.signcolumn:get(),
-  cursorline = vim.opt.cursorline:get(),
-  autoindent = vim.opt.autoindent:get(),
-  smartindent = vim.opt.smartindent:get(),
-  syntax = vim.opt.syntax:get(),
-  swapfile = vim.opt.swapfile:get(),
-  undofile = vim.opt.undofile:get(),
-  foldenable = vim.opt.foldenable:get(),
-}
-
 -- ESSENTIAL CORE SETTINGS
 vim.opt.number = true
 vim.opt.relativenumber = true
