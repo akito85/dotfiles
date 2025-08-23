@@ -41,8 +41,9 @@ require("lazy").setup({
           capabilities = require('cmp_nvim_lsp').default_capabilities(),
           flags = { debounce_text_changes = 150 },
           handlers = {
+            -- FIXED: Updated deprecated vim.lsp.diagnostic to use handlers
             ["textDocument/publishDiagnostics"] = vim.lsp.with(
-              vim.lsp.diagnostic.on_publish_diagnostics, {
+              vim.lsp.handlers["textDocument/publishDiagnostics"], {
                 update_in_insert = false,
                 virtual_text = false,
                 severity_sort = true,
@@ -72,6 +73,16 @@ require("lazy").setup({
             },
           },
         },
+        handlers = {
+          ["textDocument/publishDiagnostics"] = vim.lsp.with(
+            vim.lsp.handlers["textDocument/publishDiagnostics"], {
+              update_in_insert = false,
+              virtual_text = false,
+              severity_sort = true,
+              underline = false,
+            }
+          ),
+        },
       }
 
       -- Go-specific configuration
@@ -87,6 +98,16 @@ require("lazy").setup({
               shadow = true,
             },
           },
+        },
+        handlers = {
+          ["textDocument/publishDiagnostics"] = vim.lsp.with(
+            vim.lsp.handlers["textDocument/publishDiagnostics"], {
+              update_in_insert = false,
+              virtual_text = false,
+              severity_sort = true,
+              underline = false,
+            }
+          ),
         },
       }
 
@@ -108,9 +129,19 @@ require("lazy").setup({
             },
           },
         },
+        handlers = {
+          ["textDocument/publishDiagnostics"] = vim.lsp.with(
+            vim.lsp.handlers["textDocument/publishDiagnostics"], {
+              update_in_insert = false,
+              virtual_text = false,
+              severity_sort = true,
+              underline = false,
+            }
+          ),
+        },
       }
 
-      -- Julia-specific configuration
+      -- Julia-specific configuration - SIMPLIFIED
       lspconfig.julials.setup {
         capabilities = require('cmp_nvim_lsp').default_capabilities(),
         flags = { debounce_text_changes = 150 },
@@ -122,21 +153,19 @@ require("lazy").setup({
             completion = {
               enable = true, -- Enable completions
             },
-            runtime = {
-              version = "stable", -- Use the stable Julia version
-            },
           },
         },
-
-        -- Specify the command to start julials (optional, Mason handles this)
-        cmd = { "julia", "--project=~/.julia/environments/nvim-lspconfig", "-e", "using LanguageServer; runserver()" },
-        on_new_config = function(new_config, new_root_dir)
-          -- Ensure the Julia environment is set up
-          local julia_env = vim.fn.expand("~/.julia/environments/nvim-lspconfig")
-          if not vim.fn.isdirectory(julia_env) then
-            os.execute("julia -e 'using Pkg; Pkg.add(\"LanguageServer\"); Pkg.add(\"SymbolServer\")'")
-          end
-        end,
+        handlers = {
+          ["textDocument/publishDiagnostics"] = vim.lsp.with(
+            vim.lsp.handlers["textDocument/publishDiagnostics"], {
+              update_in_insert = false,
+              virtual_text = false,
+              severity_sort = true,
+              underline = false,
+            }
+          ),
+        },
+        -- Let Mason handle the installation and setup
       }
 
       -- Python-specific configuration
@@ -152,6 +181,16 @@ require("lazy").setup({
             },
           },
         },
+        handlers = {
+          ["textDocument/publishDiagnostics"] = vim.lsp.with(
+            vim.lsp.handlers["textDocument/publishDiagnostics"], {
+              update_in_insert = false,
+              virtual_text = false,
+              severity_sort = true,
+              underline = false,
+            }
+          ),
+        },
       }
 
       -- C/C++-specific configuration
@@ -165,12 +204,32 @@ require("lazy").setup({
             fallbackFlags = { "-std=c++17" }, -- Default standard for C++
           },
         },
+        handlers = {
+          ["textDocument/publishDiagnostics"] = vim.lsp.with(
+            vim.lsp.handlers["textDocument/publishDiagnostics"], {
+              update_in_insert = false,
+              virtual_text = false,
+              severity_sort = true,
+              underline = false,
+            }
+          ),
+        },
       }
 
       -- CSS LSP
       lspconfig.cssls.setup {
         capabilities = require('cmp_nvim_lsp').default_capabilities(),
         flags = { debounce_text_changes = 150 },
+        handlers = {
+          ["textDocument/publishDiagnostics"] = vim.lsp.with(
+            vim.lsp.handlers["textDocument/publishDiagnostics"], {
+              update_in_insert = false,
+              virtual_text = false,
+              severity_sort = true,
+              underline = false,
+            }
+          ),
+        },
       }
 
       -- JSON LSP
@@ -183,6 +242,16 @@ require("lazy").setup({
             validate = { enable = true },
           },
         },
+        handlers = {
+          ["textDocument/publishDiagnostics"] = vim.lsp.with(
+            vim.lsp.handlers["textDocument/publishDiagnostics"], {
+              update_in_insert = false,
+              virtual_text = false,
+              severity_sort = true,
+              underline = false,
+            }
+          ),
+        },
       }
 
       -- YAML LSP
@@ -194,6 +263,16 @@ require("lazy").setup({
             schemas = require('schemastore').yaml.schemas(),
             validate = true,
           },
+        },
+        handlers = {
+          ["textDocument/publishDiagnostics"] = vim.lsp.with(
+            vim.lsp.handlers["textDocument/publishDiagnostics"], {
+              update_in_insert = false,
+              virtual_text = false,
+              severity_sort = true,
+              underline = false,
+            }
+          ),
         },
       }
 
@@ -434,8 +513,8 @@ require("lazy").setup({
           local harpoon = require("harpoon")
           harpoon:setup()
 
-          -- Set keymaps for Harpoon 2
-          vim.keymap.set("n", "<leader>m", function() harpoon:list():append() end)
+          -- FIXED: Changed append() to add() for Harpoon 2
+          vim.keymap.set("n", "<leader>m", function() harpoon:list():add() end)
           vim.keymap.set("n", "<leader>h", function() harpoon.ui:toggle_quick_menu(harpoon:list()) end)
 
           -- Quick file navigation
@@ -454,32 +533,22 @@ require("lazy").setup({
       end,
   },
 
-  -- file type plugin
+  -- file type plugin - SIMPLIFIED
   {
     "nathom/filetype.nvim",
     lazy = false, -- Load during startup
     priority = 1000, -- High priority to load before other plugins
     config = function()
-      -- Basic setup with overrides
+      -- Simplified setup without complex overrides
       require("filetype").setup({
         overrides = {
           extensions = {
-            -- Override Lua filetype handling to not use Tree-sitter
-            lua = "lua_no_ts", -- Use our custom filetype
-          },
-          literal = {
-            -- Handle specific Lua files if needed
-            [".luacheckrc"] = "lua_no_ts",
-          },
-          complex = {
-            -- Handle all Lua files
-            [".*%.lua"] = "lua_no_ts",
+            lua = "lua", -- Use standard lua filetype
           },
         },
       })
     end
   },
-
 
   -- vim-gigutter - Lightweight git gutter for large files
   {
@@ -497,9 +566,12 @@ require("lazy").setup({
       local git_group = vim.api.nvim_create_augroup("GitGutterLargeFiles", { clear = true })
       vim.api.nvim_create_autocmd({"BufReadPre"}, {
         group = git_group,
+        pattern = "*", -- Added explicit pattern
         callback = function(ev)
           local max_filesize = vim.g.LargeFile * 1024 * 1024 -- Convert MB to bytes
-          local ok, stats = pcall(vim.loop.fs_stat, ev.match)
+          -- FIXED: Use vim.uv or vim.loop for fs_stat
+          local stat = vim.uv and vim.uv.fs_stat or vim.loop.fs_stat
+          local ok, stats = pcall(stat, ev.match)
           if ok and stats and (stats.size > max_filesize or stats.type == "directory") then
             vim.b.gitgutter_enabled = 0
           end
@@ -608,6 +680,7 @@ require("lazy").setup({
       local status_group = vim.api.nvim_create_augroup("StatuslineLargeFiles", { clear = true })
       vim.api.nvim_create_autocmd({"BufReadPre", "FileReadPre"}, {
         group = status_group,
+        pattern = "*", -- Added explicit pattern
         callback = function(ev)
           local file_size = vim.fn.getfsize(ev.match)
           if file_size > (vim.g.LargeFile or 10) * 1024 * 1024 or file_size == -2 then
@@ -659,6 +732,9 @@ require("lazy").setup({
       "nvim-treesitter/nvim-treesitter-textobjects",
     },
     config = function()
+      -- ADDED: Missing sprintf function
+      local sprintf = string.format
+
       -- UNIFIED FILE SIZE THRESHOLDS (aligned across all configs)
       -- These should match your performance.lua and large_file.lua thresholds
       local SMALL_FILE_THRESHOLD = 512 * 1024        -- 512KB - full features
@@ -666,10 +742,19 @@ require("lazy").setup({
       local LARGE_FILE_THRESHOLD = 50 * 1024 * 1024  -- 50MB - minimal TreeSitter
       local HUGE_FILE_THRESHOLD = 500 * 1024 * 1024  -- 500MB - disable TreeSitter
 
-      -- Helper function to get file size safely
+      -- FIXED: Helper function to get file size safely with vim.uv support
       local function get_file_size(buf)
         local name = vim.api.nvim_buf_get_name(buf or 0)
-        if name == "" then return 0 end
+        if name == "" or name == nil then return 0 end
+        
+        -- Use vim.uv.fs_stat for better performance (vim.loop is deprecated in newer Neovim)
+        local stat = vim.uv and vim.uv.fs_stat or vim.loop.fs_stat
+        local ok, stats = pcall(stat, name)
+        if ok and stats then
+          return stats.size or 0
+        end
+        
+        -- Fallback to vim.fn.getfsize
         local size = vim.fn.getfsize(name)
         return size > 0 and size or 0
       end
@@ -891,6 +976,7 @@ require("lazy").setup({
 
       vim.api.nvim_create_autocmd({"BufReadPost", "BufNewFile"}, {
         group = group,
+        pattern = "*", -- Added explicit pattern
         callback = function(ev)
           -- Defer to ensure buffer is fully loaded
           vim.defer_fn(function()
@@ -904,6 +990,7 @@ require("lazy").setup({
       -- Cleanup for performance on buffer changes
       vim.api.nvim_create_autocmd("BufWinLeave", {
         group = group,
+        pattern = "*", -- Added explicit pattern
         callback = function()
           -- Force garbage collection when leaving large buffers
           local filesize = get_file_size()
@@ -1000,5 +1087,4 @@ require("lazy").setup({
   install = {
     colorscheme = { "tokyonight-storm" },
   },
-
 })
