@@ -60,7 +60,7 @@ function M.optimize_for_file_size(file_path)
     vim.opt_local.undolevels = -1
     vim.opt_local.scrollback = 1
     vim.opt_local.scrolljump = 5
-    vim.opt_local.redrawtime = 10000
+    vim.opt_local.redrawtime = 50000
     vim.opt_local.regexpengine = 1
     vim.opt_local.maxmempattern = 2000
     vim.cmd('filetype off')
