@@ -9,7 +9,7 @@ require("lazy").setup({
     "williamboman/mason-lspconfig.nvim",
     config = function()
       require("mason-lspconfig").setup {
-        ensure_installed = { "pyright", "ts_ls", "clangd", "rust_analyzer", "gopls", "julials", "cssls", "jsonls", "yamlls" },
+        ensure_installed = { "pyright", "ts_ls", "clangd", "rust_analyzer", "gopls", "julials", "cssls", "jsonls", "yamlls", "tailwindcss" },
       }
     end,
   },
@@ -30,6 +30,7 @@ require("lazy").setup({
 
   -- LSP
   -- AI completion via local llama2.cpp
+  -- check the code below
   {
     "huggingface/llm.nvim",
     event = "InsertEnter",
@@ -47,7 +48,7 @@ require("lazy").setup({
         stop = { "\n\n", "\n    " },      -- cut at double-newline or indent
       },
       -- only trigger on these filetypes
-      ft = { "lua", "python", "rust", "go", "javascript", "typescript", "c", "cpp" },
+      ft = { "lua", "python", "rust", "go", "javascript", "typescript", "c", "cpp", "julia" },
       -- debounce like your cmp
       debounce_ms = 150,
     },
@@ -58,7 +59,7 @@ require("lazy").setup({
     event = { "BufReadPre", "BufNewFile" },
     config = function()
       local lspconfig = require('lspconfig')
-      local servers = { 'pyright', 'ts_ls', 'clangd', 'rust_analyzer', 'gopls', 'julials', 'cssls', 'jsonls', 'yamlls' }
+      local servers = { 'pyright', 'ts_ls', 'clangd', 'rust_analyzer', 'gopls', 'julials', 'cssls', 'jsonls', 'yamlls', 'tailwindcss' }
       local capabilities = require('cmp_nvim_lsp').default_capabilities()
       capabilities.positionEncodings = { 'utf-8' }
 
