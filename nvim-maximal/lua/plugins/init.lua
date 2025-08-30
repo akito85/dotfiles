@@ -29,16 +29,42 @@ require("lazy").setup({
   },
 
   -- LSP
+  -- AI completion via local llama2.cpp
+  {
+    "huggingface/llm.nvim",
+    event = "InsertEnter",
+    dependencies = { "hrsh7th/nvim-cmp" },
+    opts = {
+      -- llama2.cpp speaks Open-AI
+      api_token = "",                     -- no token needed for local
+      model = "local-llama2",             -- arbitrary label
+      url = "http://localhost:8012/v1/completions",
+      -- tweak to taste
+      max_tokens = 64,
+      temperature = 0.2,
+      -- prompt engineering
+      query_params = {
+        stop = { "\n\n", "\n    " },      -- cut at double-newline or indent
+      },
+      -- only trigger on these filetypes
+      ft = { "lua", "python", "rust", "go", "javascript", "typescript", "c", "cpp" },
+      -- debounce like your cmp
+      debounce_ms = 150,
+    },
+  },
+
   {
     "neovim/nvim-lspconfig",
     event = { "BufReadPre", "BufNewFile" },
     config = function()
       local lspconfig = require('lspconfig')
       local servers = { 'pyright', 'ts_ls', 'clangd', 'rust_analyzer', 'gopls', 'julials', 'cssls', 'jsonls', 'yamlls' }
+      local capabilities = require('cmp_nvim_lsp').default_capabilities()
+      capabilities.positionEncodings = { 'utf-8' }
 
       for _, lsp in ipairs(servers) do
         lspconfig[lsp].setup {
-          capabilities = require('cmp_nvim_lsp').default_capabilities(),
+          capabilities = capabilities,
           flags = { debounce_text_changes = 150 },
           handlers = {
             -- FIXED: Updated deprecated vim.lsp.diagnostic to use handlers
@@ -283,6 +309,7 @@ require("lazy").setup({
       vim.keymap.set('n', '<leader>gh', vim.lsp.buf.hover, { noremap = true, silent = true })
       vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, { noremap = true, silent = true })
       vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { noremap = true, silent = true })
+      vim.keymap.set('i', '<C-h>', vim.lsp.buf.signature_help, { silent = true })
     end,
     dependencies = {
       "hrsh7th/cmp-nvim-lsp",
@@ -331,10 +358,11 @@ require("lazy").setup({
           end, { 'i', 's' }),
         }),
         sources = cmp.config.sources({
-          { name = 'nvim_lsp', max_item_count = 10 },
-          { name = 'luasnip', max_item_count = 5 },
-          { name = 'buffer', max_item_count = 8, keyword_length = 4 },
-          { name = 'path', max_item_count = 5 },
+          { name = "nvim_lsp", max_item_count = 10 },
+          { name = "llm",      max_item_count = 5 },
+          { name = "luasnip",  max_item_count = 5 },
+          { name = "buffer",   max_item_count = 8, keyword_length = 4 },
+          { name = "path",     max_item_count = 5 },
         }),
         performance = {
           max_view_entries = 8,
