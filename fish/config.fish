@@ -9,3 +9,4 @@ starship init fish | source
 
 # Added by LM Studio CLI (lms)
 set -gx PATH $PATH /home/akito/.lmstudio/bin
+set -gx PATH $PATH /home/akito/App/llamacpp/bin
