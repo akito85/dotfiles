@@ -31,26 +31,46 @@ require("lazy").setup({
   -- LSP
   -- AI completion via local llama2.cpp
   -- check the code below
+
   {
     "huggingface/llm.nvim",
     event = "InsertEnter",
     dependencies = { "hrsh7th/nvim-cmp" },
     opts = {
-      -- llama2.cpp speaks Open-AI
+      -- llama2.cpp speaks OpenAI API
       api_token = "",                     -- no token needed for local
-      model = "local-llama2",             -- arbitrary label
+      model = "", -- llama-2-7b-chat       -- more descriptive label
       url = "http://localhost:8012/v1/completions",
-      -- tweak to taste
+      
+      -- Generation parameters - tuned for code completion
       max_tokens = 64,
-      temperature = 0.2,
-      -- prompt engineering
+      temperature = 0.1,                  -- Lower for more deterministic code
+      top_p = 0.95,
+      frequency_penalty = 0.0,
+      presence_penalty = 0.0,
+      
+      -- Prompt engineering for better code completion
       query_params = {
-        stop = { "\n\n", "\n    " },      -- cut at double-newline or indent
+        stop = { "\n\n", "\n    ", "```", "---" },  -- Better stop tokens
+        stream = true,                    -- Enable streaming for faster response
       },
-      -- only trigger on these filetypes
-      ft = { "lua", "python", "rust", "go", "javascript", "typescript", "c", "cpp", "julia" },
-      -- debounce like your cmp
+      
+      -- Context configuration
+      context_window = 2048,              -- Adjust based on your model
+      enable_suggestions_on_startup = false,
+      enable_suggestions_on_files = true,
+      
+      -- File type restrictions
+      ft = { 
+        "lua", "python", "rust", "go", "javascript", "typescript", 
+        "c", "cpp", "julia", "bash", "sh", "vim", "markdown" 
+      },
+      
+      -- Performance tuning
       debounce_ms = 150,
+      request_timeout = 5000,             -- 5 second timeout
+      max_context_after = 500,            -- Characters after cursor
+      max_context_before = 1500,          -- Characters before cursor
     },
   },
 
@@ -58,263 +78,1153 @@ require("lazy").setup({
     "neovim/nvim-lspconfig",
     event = { "BufReadPre", "BufNewFile" },
     config = function()
-      local lspconfig = require('lspconfig')
-      local servers = { 'pyright', 'ts_ls', 'clangd', 'rust_analyzer', 'gopls', 'julials', 'cssls', 'jsonls', 'yamlls', 'tailwindcss' }
-      local capabilities = require('cmp_nvim_lsp').default_capabilities()
-      capabilities.positionEncodings = { 'utf-8' }
+      -- Modern way to access lspconfig
+      local lspconfig = vim.lsp.config or require('lspconfig')
+      local cmp_nvim_lsp = require('cmp_nvim_lsp')
+      
+      -- Enhanced capabilities with latest defaults
+      local capabilities = cmp_nvim_lsp.default_capabilities(vim.lsp.protocol.make_client_capabilities())
+      
+      -- Enable additional capabilities
+      capabilities.textDocument.completion.completionItem.snippetSupport = true
+      capabilities.textDocument.completion.completionItem.resolveSupport = {
+        properties = { 'documentation', 'detail', 'additionalTextEdits' }
+      }
+      capabilities.textDocument.foldingRange = {
+        dynamicRegistration = false,
+        lineFoldingOnly = true
+      }
+      capabilities.textDocument.colorProvider = { dynamicRegistration = false }
 
-      for _, lsp in ipairs(servers) do
-        lspconfig[lsp].setup {
+      -- Modern diagnostic configuration
+      vim.diagnostic.config({
+        virtual_text = {
+          prefix = '',
+          source = 'if_many',
+          spacing = 2,
+        },
+        signs = {
+          text = {
+            [vim.diagnostic.severity.ERROR] = '',
+            [vim.diagnostic.severity.WARN] = '',
+            [vim.diagnostic.severity.INFO] = '',
+            [vim.diagnostic.severity.HINT] = '󰌵',
+          }
+        },
+        underline = true,
+        update_in_insert = false,
+        severity_sort = true,
+        float = {
+          focusable = false,
+          style = 'minimal',
+          border = 'rounded',
+          source = 'always',
+          header = '',
+          prefix = '',
+        },
+      })
+
+      -- Modern LSP handlers with updated API
+      vim.lsp.handlers['textDocument/hover'] = vim.lsp.with(
+        vim.lsp.handlers.hover, {
+          border = 'rounded',
+          title = 'Hover',
+        }
+      )
+
+      vim.lsp.handlers['textDocument/signatureHelp'] = vim.lsp.with(
+        vim.lsp.handlers.signature_help, {
+          border = 'rounded',
+          title = 'Signature Help',
+        }
+      )
+
+      -- Common server setup function
+      local function setup_server(server_name, opts)
+        local server_opts = {
           capabilities = capabilities,
-          flags = { debounce_text_changes = 150 },
-          handlers = {
-            -- FIXED: Updated deprecated vim.lsp.diagnostic to use handlers
-            ["textDocument/publishDiagnostics"] = vim.lsp.with(
-              vim.lsp.handlers["textDocument/publishDiagnostics"], {
-                update_in_insert = false,
-                virtual_text = false,
-                severity_sort = true,
-                underline = false,
-              }
-            ),
+          flags = {
+            debounce_text_changes = 150,
           },
         }
+        
+        if opts then
+          server_opts = vim.tbl_deep_extend('force', server_opts, opts)
+        end
+        
+        lspconfig[server_name].setup(server_opts)
       end
 
-      -- Rust-specific configuration
-      lspconfig.rust_analyzer.setup {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
-        flags = { debounce_text_changes = 150 },
+      -- Python - Basedpyright (modern successor to Pyright)
+      setup_server('basedpyright', {
         settings = {
-          ['rust-analyzer'] = {
-            checkOnSave = {
-              command = "clippy", -- Use clippy for linting
-            },
-            completion = {
-              autoimport = {
-                enable = true, -- Auto-import suggestions
+          basedpyright = {
+            analysis = {
+              autoSearchPaths = true,
+              useLibraryCodeForTypes = true,
+              diagnosticMode = 'workspace',
+              typeCheckingMode = 'standard', -- Updated from 'basic'
+              autoImportCompletions = true,
+              indexing = true,
+              include = { "**/*.py" },
+              exclude = {
+                "**/node_modules",
+                "**/__pycache__",
+                "**/.*",
               },
             },
-            diagnostics = {
-              enable = true,
-            },
+            disableOrganizeImports = false,
           },
         },
-        handlers = {
-          ["textDocument/publishDiagnostics"] = vim.lsp.with(
-            vim.lsp.handlers["textDocument/publishDiagnostics"], {
-              update_in_insert = false,
-              virtual_text = false,
-              severity_sort = true,
-              underline = false,
-            }
-          ),
-        },
-      }
+      })
 
-      -- Go-specific configuration
-      lspconfig.gopls.setup {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
-        flags = { debounce_text_changes = 150 },
-        settings = {
-          gopls = {
-            completeUnimported = true, -- Auto-import completions
-            usePlaceholders = true, -- Add placeholders for function arguments
-            analyses = {
-              unusedparams = true,
-              shadow = true,
-            },
+      -- TypeScript/JavaScript - ts_ls with modern settings
+      setup_server('ts_ls', {
+        init_options = {
+          preferences = {
+            disableSuggestions = false,
+            quotePreference = 'auto',
+            includeCompletionsForModuleExports = true,
+            includeCompletionsForImportStatements = true,
+            includeCompletionsWithSnippetText = true,
+            includeAutomaticOptionalChainCompletions = true,
           },
         },
-        handlers = {
-          ["textDocument/publishDiagnostics"] = vim.lsp.with(
-            vim.lsp.handlers["textDocument/publishDiagnostics"], {
-              update_in_insert = false,
-              virtual_text = false,
-              severity_sort = true,
-              underline = false,
-            }
-          ),
-        },
-      }
-
-      -- JavaScript/TypeScript-specific configuration
-      lspconfig.ts_ls.setup {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
-        flags = { debounce_text_changes = 150 },
         settings = {
           typescript = {
             inlayHints = {
-              includeInlayParameterNameHints = "all",
+              includeInlayParameterNameHints = 'literal',
+              includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+              includeInlayVariableTypeHints = true,
+              includeInlayFunctionParameterTypeHints = true,
+              includeInlayVariableTypeHintsWhenTypeMatchesName = false,
+              includeInlayPropertyDeclarationTypeHints = true,
               includeInlayFunctionLikeReturnTypeHints = true,
+              includeInlayEnumMemberValueHints = true,
+            },
+            suggest = {
+              includeCompletionsForModuleExports = true,
+              includeAutomaticOptionalChainCompletions = true,
             },
           },
           javascript = {
             inlayHints = {
-              includeInlayParameterNameHints = "all",
+              includeInlayParameterNameHints = 'all',
+              includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+              includeInlayVariableTypeHints = true,
+              includeInlayFunctionParameterTypeHints = true,
+              includeInlayVariableTypeHintsWhenTypeMatchesName = false,
+              includeInlayPropertyDeclarationTypeHints = true,
               includeInlayFunctionLikeReturnTypeHints = true,
+              includeInlayEnumMemberValueHints = true,
+            },
+            suggest = {
+              includeCompletionsForModuleExports = true,
+              includeAutomaticOptionalChainCompletions = true,
             },
           },
         },
-        handlers = {
-          ["textDocument/publishDiagnostics"] = vim.lsp.with(
-            vim.lsp.handlers["textDocument/publishDiagnostics"], {
-              update_in_insert = false,
-              virtual_text = false,
-              severity_sort = true,
-              underline = false,
-            }
-          ),
-        },
-      }
+      })
 
-      -- Julia-specific configuration - SIMPLIFIED
-      lspconfig.julials.setup {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
-        flags = { debounce_text_changes = 150 },
+      -- C/C++ - clangd with latest options
+      setup_server('clangd', {
+        cmd = {
+          'clangd',
+          '--background-index',
+          '--clang-tidy',
+          '--header-insertion=iwyu',
+          '--completion-style=detailed',
+          '--function-arg-placeholders',
+          '--fallback-style=llvm',
+          '--enable-config',
+          '--offset-encoding=utf-16',
+        },
+        root_dir = lspconfig.util.root_pattern(
+          '.clangd',
+          '.clang-tidy',
+          '.clang-format',
+          'compile_commands.json',
+          'compile_flags.txt',
+          'configure.ac',
+          '.git'
+        ),
+        init_options = {
+          usePlaceholders = true,
+          completeUnimported = true,
+          clangdFileStatus = true,
+        },
+        filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' },
+      })
+
+      -- Rust - rust_analyzer with comprehensive modern settings
+      setup_server('rust_analyzer', {
+        settings = {
+          ['rust-analyzer'] = {
+            imports = {
+              granularity = {
+                group = 'module',
+              },
+              prefix = 'self',
+              enforce = true,
+            },
+            cargo = {
+              buildScripts = {
+                enable = true,
+              },
+              features = 'all',
+              runBuildScripts = true,
+            },
+            procMacro = {
+              enable = true,
+              ignored = {},
+            },
+            checkOnSave = true,
+            check = {
+              command = 'clippy',
+              features = 'all',
+            },
+            completion = {
+              addCallArgumentSnippets = true,
+              addCallParenthesis = true,
+              autoimport = {
+                enable = true,
+              },
+              autoself = {
+                enable = true,
+              },
+              postfix = {
+                enable = true,
+              },
+              privateEditable = {
+                enable = false,
+              },
+            },
+            diagnostics = {
+              enable = true,
+              experimental = {
+                enable = false,
+              },
+            },
+            hover = {
+              actions = {
+                enable = true,
+                implementations = {
+                  enable = true,
+                },
+                references = {
+                  enable = true,
+                },
+                run = {
+                  enable = true,
+                },
+              },
+              documentation = {
+                enable = true,
+              },
+              links = {
+                enable = true,
+              },
+            },
+            inlayHints = {
+              bindingModeHints = {
+                enable = false,
+              },
+              chainingHints = {
+                enable = true,
+              },
+              closingBraceHints = {
+                enable = true,
+                minLines = 25,
+              },
+              closureReturnTypeHints = {
+                enable = 'never',
+              },
+              discriminantHints = {
+                enable = 'never',
+              },
+              expressionAdjustmentHints = {
+                enable = 'never',
+              },
+              implicitDrops = {
+                enable = false,
+              },
+              lifetimeElisionHints = {
+                enable = 'never',
+                useParameterNames = false,
+              },
+              maxLength = 25,
+              parameterHints = {
+                enable = true,
+              },
+              reborrowHints = {
+                enable = 'never',
+              },
+              renderColons = true,
+              typeHints = {
+                enable = true,
+                hideClosureInitialization = false,
+                hideNamedConstructor = false,
+              },
+            },
+            joinLines = {
+              joinElseIf = true,
+              joinAssignments = true,
+              removeTrailingComma = true,
+              unwrapTrivialBlock = true,
+            },
+            lens = {
+              enable = true,
+              implementations = {
+                enable = true,
+              },
+              references = {
+                adt = {
+                  enable = true,
+                },
+                enumVariant = {
+                  enable = true,
+                },
+                method = {
+                  enable = true,
+                },
+                trait = {
+                  enable = true,
+                },
+              },
+              run = {
+                enable = true,
+              },
+            },
+          },
+        },
+      })
+
+      -- Go - gopls with latest features
+      setup_server('gopls', {
+        settings = {
+          gopls = {
+            analyses = {
+              nilness = true,
+              unusedparams = true,
+              unusedwrite = true,
+              useany = true,
+              shadow = true,
+            },
+            experimentalPostfixCompletions = true,
+            gofumpt = true,
+            staticcheck = true,
+            usePlaceholders = true,
+            completeUnimported = true,
+            matcher = 'Fuzzy',
+            diagnosticsDelay = '500ms',
+            symbolMatcher = 'fuzzy',
+            hints = {
+              assignVariableTypes = true,
+              compositeLiteralFields = true,
+              compositeLiteralTypes = true,
+              constantValues = true,
+              functionTypeParameters = true,
+              parameterNames = true,
+              rangeVariableTypes = true,
+            },
+            codelenses = {
+              gc_details = false,
+              generate = true,
+              regenerate_cgo = true,
+              run_govulncheck = true,
+              test = true,
+              tidy = true,
+              upgrade_dependency = true,
+              vendor = true,
+            },
+          },
+        },
+      })
+
+      -- Julia - julials with modern configuration
+      setup_server('julials', {
         settings = {
           julia = {
             lint = {
-              enabled = true, -- Enable linting
+              run = true,
+              missingrefs = 'none',
+              disabledDirs = { 'docs', 'test' },
+            },
+            completions = {
+              enable = true,
+            },
+            hover = {
+              enable = true,
+            },
+            format = {
+              indent = 4,
+              compile = 'system',
+            },
+          },
+        },
+      })
+
+      -- CSS - cssls with enhanced features
+      setup_server('cssls', {
+        settings = {
+          css = {
+            validate = true,
+            lint = {
+              unknownAtRules = 'ignore',
+              vendorPrefix = 'warning',
             },
             completion = {
-              enable = true, -- Enable completions
+              completePropertyWithSemicolon = true,
+              triggerPropertyValueCompletion = true,
+            },
+          },
+          scss = {
+            validate = true,
+            lint = {
+              unknownAtRules = 'ignore',
+              vendorPrefix = 'warning',
+            },
+            completion = {
+              completePropertyWithSemicolon = true,
+              triggerPropertyValueCompletion = true,
+            },
+          },
+          less = {
+            validate = true,
+            lint = {
+              unknownAtRules = 'ignore',
+              vendorPrefix = 'warning',
+            },
+            completion = {
+              completePropertyWithSemicolon = true,
+              triggerPropertyValueCompletion = true,
             },
           },
         },
-        handlers = {
-          ["textDocument/publishDiagnostics"] = vim.lsp.with(
-            vim.lsp.handlers["textDocument/publishDiagnostics"], {
-              update_in_insert = false,
-              virtual_text = false,
-              severity_sort = true,
-              underline = false,
-            }
-          ),
-        },
-        -- Let Mason handle the installation and setup
-      }
+      })
 
-      -- Python-specific configuration
-      lspconfig.pyright.setup {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
-        flags = { debounce_text_changes = 150 },
-        settings = {
-          python = {
-            analysis = {
-              autoImportCompletions = true,
-              typeCheckingMode = "basic", -- Options: "off", "basic", "strict"
-              diagnosticMode = "openFilesOnly", -- Reduce diagnostics for large projects
-            },
-          },
-        },
-        handlers = {
-          ["textDocument/publishDiagnostics"] = vim.lsp.with(
-            vim.lsp.handlers["textDocument/publishDiagnostics"], {
-              update_in_insert = false,
-              virtual_text = false,
-              severity_sort = true,
-              underline = false,
-            }
-          ),
-        },
-      }
-
-      -- C/C++-specific configuration
-      lspconfig.clangd.setup {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
-        flags = { debounce_text_changes = 1 },
-        cmd = { "clangd", "--background-index", "--suggest-missing-includes", "--clang-tidy" },
-        filetypes = { "c", "cpp", "objc", "objcpp" },
-        settings = {
-          clangd = {
-            fallbackFlags = { "-std=c++17" }, -- Default standard for C++
-          },
-        },
-        handlers = {
-          ["textDocument/publishDiagnostics"] = vim.lsp.with(
-            vim.lsp.handlers["textDocument/publishDiagnostics"], {
-              update_in_insert = false,
-              virtual_text = false,
-              severity_sort = true,
-              underline = false,
-            }
-          ),
-        },
-      }
-
-      -- CSS LSP
-      lspconfig.cssls.setup {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
-        flags = { debounce_text_changes = 150 },
-        handlers = {
-          ["textDocument/publishDiagnostics"] = vim.lsp.with(
-            vim.lsp.handlers["textDocument/publishDiagnostics"], {
-              update_in_insert = false,
-              virtual_text = false,
-              severity_sort = true,
-              underline = false,
-            }
-          ),
-        },
-      }
-
-      -- JSON LSP
-      lspconfig.jsonls.setup {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
-        flags = { debounce_text_changes = 150 },
+      -- JSON - jsonls with comprehensive schema support
+      setup_server('jsonls', {
         settings = {
           json = {
-            schemas = require('schemastore').json.schemas(),
+            schemas = require('schemastore').json.schemas({
+              select = {
+                '.eslintrc',
+                'package.json',
+                'tsconfig.json',
+                'jsconfig.json',
+              },
+            }),
             validate = { enable = true },
+            format = {
+              enable = true,
+            },
+            completion = {
+              enable = true,
+            },
           },
         },
-        handlers = {
-          ["textDocument/publishDiagnostics"] = vim.lsp.with(
-            vim.lsp.handlers["textDocument/publishDiagnostics"], {
-              update_in_insert = false,
-              virtual_text = false,
-              severity_sort = true,
-              underline = false,
-            }
-          ),
-        },
-      }
+      })
 
-      -- YAML LSP
-      lspconfig.yamlls.setup {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
-        flags = { debounce_text_changes = 150 },
+      -- YAML - yamlls with enhanced schema handling
+      setup_server('yamlls', {
         settings = {
           yaml = {
-            schemas = require('schemastore').yaml.schemas(),
+            schemaStore = {
+              enable = false,
+              url = '',
+            },
+            schemas = require('schemastore').yaml.schemas({
+              select = {
+                'kustomization.yaml',
+                'GitHub Workflow',
+                'docker-compose.yml',
+              },
+            }),
             validate = true,
+            format = {
+              enable = true,
+              singleQuote = false,
+              bracketSpacing = true,
+            },
+            hover = true,
+            completion = true,
+            customTags = {
+              '!fn',
+              '!And',
+              '!If',
+              '!Not',
+              '!Equals',
+              '!Or',
+              '!FindInMap sequence',
+              '!Base64',
+              '!Cidr',
+              '!Ref',
+              '!Sub',
+              '!GetAtt',
+              '!GetAZs',
+              '!ImportValue',
+              '!Select',
+              '!Split',
+              '!Join sequence',
+            },
           },
         },
-        handlers = {
-          ["textDocument/publishDiagnostics"] = vim.lsp.with(
-            vim.lsp.handlers["textDocument/publishDiagnostics"], {
-              update_in_insert = false,
-              virtual_text = false,
-              severity_sort = true,
-              underline = false,
-            }
-          ),
-        },
-      }
+      })
 
-      -- Keymaps
-      vim.keymap.set('n', '<leader>gd', vim.lsp.buf.definition, { noremap = true, silent = true })
-      vim.keymap.set('n', '<leader>gr', vim.lsp.buf.references, { noremap = true, silent = true })
-      vim.keymap.set('n', '<leader>gi', vim.lsp.buf.implementation, { noremap = true, silent = true })
-      vim.keymap.set('n', '<leader>gh', vim.lsp.buf.hover, { noremap = true, silent = true })
-      vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, { noremap = true, silent = true })
-      vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { noremap = true, silent = true })
-      vim.keymap.set('i', '<C-h>', vim.lsp.buf.signature_help, { silent = true })
+      -- Tailwind CSS with modern configuration
+      setup_server('tailwindcss', {
+        filetypes = { 
+          'html', 
+          'css', 
+          'scss', 
+          'javascript', 
+          'typescript', 
+          'javascriptreact', 
+          'typescriptreact', 
+          'vue', 
+          'svelte',
+          'astro',
+          'php',
+          'twig',
+          'erb',
+          'slim',
+          'haml',
+          'blade',
+          'liquid',
+        },
+        init_options = {
+          userLanguages = {
+            eelixir = 'html-eex',
+            eruby = 'erb',
+          },
+        },
+        settings = {
+          tailwindCSS = {
+            classAttributes = { 
+              'class', 
+              'className', 
+              'class:list', 
+              'classList', 
+              'ngClass',
+              'classes',
+            },
+            lint = {
+              cssConflict = 'warning',
+              invalidApply = 'error',
+              invalidConfigPath = 'error',
+              invalidScreen = 'error',
+              invalidTailwindDirective = 'error',
+              invalidVariant = 'error',
+              recommendedVariantOrder = 'warning',
+            },
+            validate = true,
+            experimental = {
+              classRegex = {
+                'tw`([^`]*)',
+                { 'clsx\\(([^)]*)\\)', "(?:'|\"|`)([^']*)(?:'|\"|`)" },
+                { 'classnames\\(([^)]*)\\)', "'([^']*)'" },
+              },
+            },
+          },
+        },
+      })
+
+      -- Flutter & Dart - Using flutter-tools.nvim (DO NOT use dartls directly)
+      -- Note: flutter-tools.nvim handles dartls automatically and provides enhanced features
+      -- This should be configured as a separate plugin, not through lspconfig
+      
+      -- Kotlin Language Server
+      setup_server('kotlin_language_server', {
+        settings = {
+          kotlin = {
+            compiler = {
+              jvm = {
+                target = '17',
+              },
+            },
+            completion = {
+              snippets = {
+                enabled = true,
+              },
+            },
+            linting = {
+              debounceTime = 250,
+            },
+            indexing = {
+              enabled = true,
+            },
+            externalSources = {
+              useKlsScheme = true,
+              autoConvertToKotlin = true,
+            },
+            inlayHints = {
+              typeHints = true,
+              parameterHints = true,
+              chainingHints = true,
+            },
+          },
+        },
+        root_dir = lspconfig.util.root_pattern('settings.gradle', 'settings.gradle.kts', 'build.gradle', 'build.gradle.kts', '.git'),
+        init_options = {
+          storagePath = vim.fn.expand('~/.cache/kotlin-language-server'),
+        },
+      })
+
+      -- Java - Eclipse JDT LS (Use nvim-jdtls plugin for enhanced features)
+      -- Note: For full Java support, use nvim-jdtls plugin instead of basic lspconfig
+      -- This is a fallback configuration for basic Java support
+      local function get_jdtls_config()
+        local home = vim.fn.expand('~')
+        local workspace_path = home .. '/.cache/jdtls/workspace/'
+        local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t')
+        local workspace_dir = workspace_path .. project_name
+        
+        return {
+          cmd = {
+            'java',
+            '-Declipse.application=org.eclipse.jdt.ls.core.id1',
+            '-Dosgi.bundles.defaultStartLevel=4',
+            '-Declipse.product=org.eclipse.jdt.ls.core.product',
+            '-Dlog.protocol=true',
+            '-Dlog.level=ALL',
+            '-Xmx1g',
+            '--add-modules=ALL-SYSTEM',
+            '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+            '-jar', vim.fn.glob(home .. '/.local/share/nvim/mason/packages/jdtls/plugins/org.eclipse.equinox.launcher_*.jar'),
+            '-configuration', home .. '/.local/share/nvim/mason/packages/jdtls/config_linux',
+            '-data', workspace_dir,
+          },
+          root_dir = lspconfig.util.root_pattern('.git', 'mvnw', 'gradlew', 'pom.xml', 'build.gradle', 'build.gradle.kts'),
+          settings = {
+            java = {
+              home = '/usr/lib/jvm/java-21-openjdk', -- Adjust to your Java 21+ installation
+              eclipse = {
+                downloadSources = true,
+              },
+              configuration = {
+                updateBuildConfiguration = 'interactive',
+                runtimes = {
+                  {
+                    name = 'JavaSE-21',
+                    path = '/usr/lib/jvm/java-21-openjdk',
+                    default = true,
+                  },
+                },
+              },
+              maven = {
+                downloadSources = true,
+              },
+              implementationsCodeLens = {
+                enabled = true,
+              },
+              referencesCodeLens = {
+                enabled = true,
+              },
+              references = {
+                includeDecompiledSources = true,
+              },
+              format = {
+                enabled = true,
+                settings = {
+                  url = vim.fn.stdpath('config') .. '/lang-servers/intellij-java-google-style.xml',
+                  profile = 'GoogleStyle',
+                },
+              },
+              signatureHelp = { enabled = true },
+              contentProvider = { preferred = 'fernflower' },
+              completion = {
+                favoriteStaticMembers = {
+                  'org.hamcrest.MatcherAssert.assertThat',
+                  'org.hamcrest.Matchers.*',
+                  'org.hamcrest.CoreMatchers.*',
+                  'org.junit.jupiter.api.Assertions.*',
+                  'java.util.Objects.requireNonNull',
+                  'java.util.Objects.requireNonNullElse',
+                  'org.mockito.Mockito.*',
+                },
+                importOrder = {
+                  'java',
+                  'javax',
+                  'com',
+                  'org',
+                },
+              },
+              sources = {
+                organizeImports = {
+                  starThreshold = 9999,
+                  staticStarThreshold = 9999,
+                },
+              },
+              codeGeneration = {
+                toString = {
+                  template = '${object.className}{${member.name()}=${member.value}, ${otherMembers}}',
+                },
+                useBlocks = true,
+              },
+            },
+          },
+          capabilities = capabilities,
+          flags = {
+            allow_incremental_sync = true,
+          },
+        }
+      end
+
+      -- Only setup basic jdtls if nvim-jdtls is not available
+      local ok, _ = pcall(require, 'jdtls')
+      if not ok then
+        setup_server('jdtls', get_jdtls_config())
+      end
+
+      -- Spring Boot Language Server (STS4) - handled by nvim-java plugin
+      -- Note: Spring Boot Tools (STS4) is automatically handled by nvim-java
+      -- No separate mason installation needed - it's included with nvim-java setup
+      
+      -- Dart Language Server setup
+      -- Note: Dart LSP is bundled with Flutter/Dart SDK, no Mason installation needed
+      -- flutter-tools.nvim will handle dartls automatically
+
+      -- Enhanced keymaps with modern vim.keymap.set
+      local function map(mode, lhs, rhs, opts)
+        opts = opts or {}
+        opts.silent = opts.silent ~= false
+        vim.keymap.set(mode, lhs, rhs, opts)
+      end
+
+      -- LSP navigation and actions
+      map('n', '<leader>gd', vim.lsp.buf.definition, { desc = 'Go to definition' })
+      map('n', '<leader>gD', vim.lsp.buf.declaration, { desc = 'Go to declaration' })
+      map('n', '<leader>gr', vim.lsp.buf.references, { desc = 'Show references' })
+      map('n', '<leader>gi', vim.lsp.buf.implementation, { desc = 'Go to implementation' })
+      map('n', '<leader>gt', vim.lsp.buf.type_definition, { desc = 'Go to type definition' })
+      map('n', '<leader>gh', vim.lsp.buf.hover, { desc = 'Show hover information' })
+      map('n', '<leader>rn', vim.lsp.buf.rename, { desc = 'Rename symbol' })
+      map({'n', 'v'}, '<leader>ca', vim.lsp.buf.code_action, { desc = 'Code actions' })
+      
+      -- Formatting
+      map({'n', 'v'}, '<leader>f', function()
+        vim.lsp.buf.format({ 
+          async = true,
+          filter = function(client)
+            return client.name ~= 'ts_ls' -- Prefer prettier for TS/JS
+          end
+        })
+      end, { desc = 'Format buffer/selection' })
+
+      -- Diagnostics
+      map('n', '<leader>e', vim.diagnostic.open_float, { desc = 'Show line diagnostics' })
+      map('n', '[d', vim.diagnostic.goto_prev, { desc = 'Previous diagnostic' })
+      map('n', ']d', vim.diagnostic.goto_next, { desc = 'Next diagnostic' })
+      map('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Add diagnostics to location list' })
+      map('n', '<leader>Q', vim.diagnostic.setqflist, { desc = 'Add diagnostics to quickfix list' })
+
+      -- Signature help
+      map('i', '<C-h>', vim.lsp.buf.signature_help, { desc = 'Signature help' })
+
+      -- Inlay hints toggle (Neovim 0.10+)
+      map('n', '<leader>ih', function()
+        local current_buf = vim.api.nvim_get_current_buf()
+        local enabled = vim.lsp.inlay_hint.is_enabled({ bufnr = current_buf })
+        vim.lsp.inlay_hint.enable(not enabled, { bufnr = current_buf })
+      end, { desc = 'Toggle inlay hints' })
+
+      -- Modern LspAttach autocmd
+      local lsp_group = vim.api.nvim_create_augroup('UserLspConfig', { clear = true })
+      
+      vim.api.nvim_create_autocmd('LspAttach', {
+        group = lsp_group,
+        callback = function(args)
+          local client = vim.lsp.get_client_by_id(args.data.client_id)
+          local bufnr = args.buf
+
+          -- Enable inlay hints if supported (Neovim 0.10+)
+          if client and client.server_capabilities.inlayHintProvider then
+            vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
+          end
+
+          -- Enable completion triggered by <c-x><c-o>
+          vim.bo[bufnr].omnifunc = 'v:lua.vim.lsp.omnifunc'
+
+          -- Enable document highlighting if supported
+          if client and client.server_capabilities.documentHighlightProvider then
+            local highlight_group = vim.api.nvim_create_augroup('lsp_document_highlight', { clear = false })
+            vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
+              buffer = bufnr,
+              group = highlight_group,
+              callback = vim.lsp.buf.document_highlight,
+            })
+            vim.api.nvim_create_autocmd('CursorMoved', {
+              buffer = bufnr,
+              group = highlight_group,
+              callback = vim.lsp.buf.clear_references,
+            })
+          end
+        end,
+      })
+
+      -- LspDetach autocmd to clean up
+      vim.api.nvim_create_autocmd('LspDetach', {
+        group = lsp_group,
+        callback = function(args)
+          local client = vim.lsp.get_client_by_id(args.data.client_id)
+          if client and client.server_capabilities.inlayHintProvider then
+            vim.lsp.inlay_hint.enable(false, { bufnr = args.buf })
+          end
+          vim.lsp.buf.clear_references()
+        end,
+      })
     end,
     dependencies = {
-      "hrsh7th/cmp-nvim-lsp",
-      "b0o/schemastore.nvim",
+      'hrsh7th/cmp-nvim-lsp',
+      'b0o/schemastore.nvim',
+      
+      -- Optional but highly recommended for enhanced features:
+      {
+        'akinsho/flutter-tools.nvim', -- Updated package name
+        lazy = false,
+        ft = { 'dart' },
+        dependencies = {
+          'nvim-lua/plenary.nvim',
+          'stevearc/dressing.nvim', -- optional for vim.ui.select
+        },
+        config = function()
+          require('flutter-tools').setup({
+            ui = {
+              border = 'rounded',
+              notification_style = 'native',
+            },
+            decorations = {
+              statusline = {
+                app_version = false,
+                device = true,
+                project_config = false,
+              },
+            },
+            debugger = {
+              enabled = false,
+              run_via_dap = false,
+              exception_breakpoints = {},
+              evaluate_to_string_in_debug_views = true,
+              register_configurations = function(paths)
+                require('dap').configurations.dart = {
+                  {
+                    type = 'dart',
+                    request = 'launch',
+                    name = 'Launch flutter',
+                    dartSdkPath = paths.dart_sdk,
+                    flutterSdkPath = paths.flutter_sdk,
+                    program = '${workspaceFolder}/lib/main.dart',
+                    cwd = '${workspaceFolder}',
+                  },
+                }
+              end,
+            },
+            flutter_path = nil, -- <-- this takes priority over the lookup
+            flutter_lookup_cmd = nil, -- example "dirname $(which flutter)" or "asdf where flutter"
+            root_patterns = { '.git', 'pubspec.yaml' }, -- patterns to find the root of your flutter project
+            fvm = false, -- takes priority over path, uses <workspace>/.fvm/flutter_sdk if enabled
+            widget_guides = {
+              enabled = false,
+            },
+            closing_tags = {
+              highlight = 'ErrorMsg', -- highlight for the closing tag
+              prefix = '>', -- character to use for close tag e.g. > Widget
+              priority = 10, -- priority of virtual text
+              enabled = true -- set to false to disable
+            },
+            dev_log = {
+              enabled = true,
+              notify_errors = false, -- if there is an error whilst running then notify the user
+              open_cmd = 'tabedit', -- command to use to open the log buffer
+            },
+            dev_tools = {
+              autostart = false, -- autostart devtools server if not detected
+              auto_open_browser = false, -- Automatically opens devtools in the browser
+            },
+            outline = {
+              open_cmd = '30vnew', -- command to use to open the outline buffer
+              auto_open = false -- if true this will open the outline automatically when it is first populated
+            },
+            lsp = {
+              color = { -- show the derived colours for dart variables
+                enabled = false, -- whether or not to highlight color variables at all, only supported on flutter >= 2.10
+                background = false, -- highlight the background
+                background_color = nil, -- required, when background is transparent (i.e. background_color = { r = 19, g = 17, b = 24},)
+                foreground = false, -- highlight the foreground
+                virtual_text = true, -- show the highlight using virtual text
+                virtual_text_str = '■', -- the virtual text character to highlight
+              },
+              on_attach = function(client, bufnr)
+                -- Enhanced on_attach for Flutter
+                local opts = { buffer = bufnr, silent = true }
+                vim.keymap.set('n', '<leader>Fc', '<cmd>Telescope flutter commands<CR>', opts)
+                vim.keymap.set('n', '<leader>Fr', '<cmd>FlutterReload<CR>', opts)
+                vim.keymap.set('n', '<leader>FR', '<cmd>FlutterRestart<CR>', opts)
+                vim.keymap.set('n', '<leader>Fq', '<cmd>FlutterQuit<CR>', opts)
+                vim.keymap.set('n', '<leader>Fd', '<cmd>FlutterDevices<CR>', opts)
+                vim.keymap.set('n', '<leader>Fe', '<cmd>FlutterEmulators<CR>', opts)
+                vim.keymap.set('n', '<leader>Fo', '<cmd>FlutterOutlineToggle<CR>', opts)
+                vim.keymap.set('n', '<leader>Ft', '<cmd>FlutterDevTools<CR>', opts)
+                vim.keymap.set('n', '<leader>Fl', '<cmd>FlutterLogClear<CR>', opts)
+              end,
+              capabilities = require('cmp_nvim_lsp').default_capabilities(),
+              -- OR you can specify a function to deactivate or change or control how the config is created
+              capabilities = function(config)
+                config.specificThingIDontWant = false
+                return config
+              end,
+              -- see the link below for details on each option:
+              -- https://github.com/dart-lang/sdk/blob/master/pkg/analysis_server/tool/lsp_spec/README.md#client-workspace-configuration
+              settings = {
+                showTodos = true,
+                completeFunctionCalls = true,
+                analysisExcludedFolders = {
+                  vim.fn.expand('$HOME/AppData/Local/Pub/Cache'),
+                  vim.fn.expand('$HOME/.pub-cache'),
+                  vim.fn.expand('/opt/homebrew/'),
+                  vim.fn.expand('$HOME/tools/flutter/'),
+                },
+                renameFilesWithClasses = 'prompt', -- "always"
+                enableSnippets = true,
+                updateImportsOnRename = true, -- Whether to update imports and other directives when files are renamed. Required for `FlutterRename` command.
+              }
+            }
+          })
+        end,
+      },
+      
+      {
+        'nvim-java/nvim-java', -- For comprehensive Java support
+        ft = { 'java' },
+        config = function()
+          require('java').setup({
+            -- Your nvim-java configuration
+            root_markers = {
+              'settings.gradle',
+              'settings.gradle.kts',
+              'pom.xml',
+              'build.gradle',
+              'mvnw',
+              'gradlew',
+              'build.gradle.kts',
+              '.git',
+            },
+            java_test = {
+              enable = true,
+            },
+            java_debug_adapter = {
+              enable = true,
+            },
+            spring_boot_tools = {
+              enable = true,
+            },
+            jdk = {
+              auto_install = false,
+            },
+            notifications = {
+              dap = true,
+            },
+          })
+        end,
+      },
+
+      -- Alternative: Manual nvim-jdtls setup (if you prefer more control)
+      {
+        'mfussenegger/nvim-jdtls',
+        ft = { 'java' },
+        config = function()
+          local function jdtls_setup()
+            local jdtls = require('jdtls')
+            local home = vim.fn.expand('~')
+            local workspace_path = home .. '/.cache/jdtls/workspace/'
+            local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t')
+            local workspace_dir = workspace_path .. project_name
+
+            -- Lombok support
+            local lombok_path = home .. '/.local/share/nvim/mason/packages/jdtls/lombok.jar'
+            
+            local config = {
+              cmd = {
+                'java',
+                '-Declipse.application=org.eclipse.jdt.ls.core.id1',
+                '-Dosgi.bundles.defaultStartLevel=4',
+                '-Declipse.product=org.eclipse.jdt.ls.core.product',
+                '-Dlog.protocol=true',
+                '-Dlog.level=ALL',
+                '-javaagent:' .. lombok_path,
+                '-Xbootclasspath/a:' .. lombok_path,
+                '-Xmx4g',
+                '--add-modules=ALL-SYSTEM',
+                '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+                '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+                '--add-opens', 'java.base/sun.nio.fs=ALL-UNNAMED',
+                '-jar', vim.fn.glob(home .. '/.local/share/nvim/mason/packages/jdtls/plugins/org.eclipse.equinox.launcher_*.jar'),
+                '-configuration', home .. '/.local/share/nvim/mason/packages/jdtls/config_' .. (vim.fn.has('mac') == 1 and 'mac' or 'linux'),
+                '-data', workspace_dir,
+              },
+              root_dir = require('jdtls.setup').find_root({'.git', 'mvnw', 'gradlew', 'pom.xml', 'build.gradle', 'build.gradle.kts'}),
+              settings = {
+                java = {
+                  home = vim.fn.expand('~/.sdkman/candidates/java/current'), -- Adjust to your Java installation
+                  eclipse = {
+                    downloadSources = true,
+                  },
+                  configuration = {
+                    updateBuildConfiguration = 'interactive',
+                    runtimes = {
+                      {
+                        name = 'JavaSE-21',
+                        path = vim.fn.expand('~/.sdkman/candidates/java/21.0.1-oracle/'),
+                      },
+                      {
+                        name = 'JavaSE-17',
+                        path = vim.fn.expand('~/.sdkman/candidates/java/17.0.9-oracle/'),
+                      },
+                    },
+                  },
+                  maven = {
+                    downloadSources = true,
+                  },
+                  implementationsCodeLens = {
+                    enabled = true,
+                  },
+                  referencesCodeLens = {
+                    enabled = true,
+                  },
+                  references = {
+                    includeDecompiledSources = true,
+                  },
+                  format = {
+                    enabled = true,
+                  },
+                  signatureHelp = { enabled = true },
+                  contentProvider = { preferred = 'fernflower' },
+                  completion = {
+                    favoriteStaticMembers = {
+                      'org.hamcrest.MatcherAssert.assertThat',
+                      'org.hamcrest.Matchers.*',
+                      'org.hamcrest.CoreMatchers.*',
+                      'org.junit.jupiter.api.Assertions.*',
+                      'java.util.Objects.requireNonNull',
+                      'java.util.Objects.requireNonNullElse',
+                      'org.mockito.Mockito.*',
+                      'org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*',
+                      'org.springframework.test.web.servlet.result.MockMvcResultMatchers.*',
+                    },
+                    importOrder = {
+                      'java',
+                      'javax',
+                      'com',
+                      'org',
+                    },
+                  },
+                  sources = {
+                    organizeImports = {
+                      starThreshold = 9999,
+                      staticStarThreshold = 9999,
+                    },
+                  },
+                  codeGeneration = {
+                    toString = {
+                      template = '${object.className}{${member.name()}=${member.value}, ${otherMembers}}',
+                    },
+                    useBlocks = true,
+                  },
+                  inlayHints = {
+                    parameterNames = {
+                      enabled = 'all',
+                    },
+                  },
+                },
+              },
+              capabilities = require('cmp_nvim_lsp').default_capabilities(),
+              on_attach = function(client, bufnr)
+                -- JDTLS-specific keymaps
+                local opts = { buffer = bufnr, silent = true }
+                vim.keymap.set('n', '<leader>Jo', jdtls.organize_imports, vim.tbl_extend('force', opts, { desc = 'Organize imports' }))
+                vim.keymap.set('n', '<leader>Jv', jdtls.extract_variable, vim.tbl_extend('force', opts, { desc = 'Extract variable' }))
+                vim.keymap.set('n', '<leader>Jc', jdtls.extract_constant, vim.tbl_extend('force', opts, { desc = 'Extract constant' }))
+                vim.keymap.set('v', '<leader>Jm', [[<ESC><CMD>lua require('jdtls').extract_method(true)<CR>]], vim.tbl_extend('force', opts, { desc = 'Extract method' }))
+                vim.keymap.set('n', '<leader>Jt', jdtls.test_nearest_method, vim.tbl_extend('force', opts, { desc = 'Test nearest method' }))
+                vim.keymap.set('n', '<leader>JT', jdtls.test_class, vim.tbl_extend('force', opts, { desc = 'Test class' }))
+                vim.keymap.set('n', '<leader>Ju', '<CMD>JdtUpdateConfig<CR>', vim.tbl_extend('force', opts, { desc = 'Update config' }))
+              end,
+              init_options = {
+                bundles = {}
+              },
+            }
+            
+            jdtls.start_or_attach(config)
+          end
+
+          vim.api.nvim_create_autocmd('FileType', {
+            pattern = 'java',
+            callback = jdtls_setup,
+          })
+        end,
+      },
+
+      -- Kotlin support
+      {
+        'udalov/kotlin-vim',
+        ft = 'kotlin',
+      },
+
+      -- Additional LSP utilities
+      {
+        'j-hui/fidget.nvim', -- LSP progress notifications
+        opts = {
+          notification = {
+            window = {
+              winblend = 100,
+            },
+          },
+        },
+      },
+
+      -- Better quickfix and location list
+      {
+        'kevinhwang91/nvim-bqf',
+        ft = 'qf',
+        config = function()
+          require('bqf').setup({
+            auto_enable = true,
+            auto_resize_height = true,
+            preview = {
+              win_height = 12,
+              win_vheight = 12,
+              delay_syntax = 80,
+              border_chars = { '┃', '┃', '━', '━', '┏', '┓', '┗', '┛', '█' },
+              show_title = false,
+              should_preview_cb = function(bufnr, qwinid)
+                local ret = true
+                local bufname = vim.api.nvim_buf_get_name(bufnr)
+                local fsize = vim.fn.getfsize(bufname)
+                if fsize > 100 * 1024 then
+                  ret = false
+                end
+                return ret
+              end
+            },
+            func_map = {
+              drop = 'o',
+              openc = 'O',
+              split = '<C-s>',
+              tabdrop = '<C-t>',
+              tabc = '',
+              ptogglemode = 'z,',
+            },
+            filter = {
+              fzf = {
+                action_for = { ['ctrl-s'] = 'split', ['ctrl-t'] = 'tab drop' },
+                extra_opts = { '--bind', 'ctrl-o:toggle-all', '--prompt', '> ' }
+              }
+            }
+          })
+        end,
+      },
     },
   },
 
@@ -323,62 +1233,154 @@ require("lazy").setup({
     "hrsh7th/nvim-cmp",
     event = { "InsertEnter", "CmdlineEnter" },
     dependencies = {
-      "hrsh7th/cmp-buffer",
-      "hrsh7th/cmp-path",
-      "L3MON4D3/LuaSnip",
-      "saadparwaiz1/cmp_luasnip",
-      "rafamadriz/friendly-snippets",
+      "hrsh7th/cmp-nvim-lsp",             -- LSP completions
+      "hrsh7th/cmp-buffer",               -- Buffer completions
+      "hrsh7th/cmp-path",                 -- Path completions
+      "hrsh7th/cmp-cmdline",              -- Command line completions
+      "L3MON4D3/LuaSnip",                 -- Snippet engine
+      "saadparwaiz1/cmp_luasnip",         -- Snippet completions
+      "rafamadriz/friendly-snippets",     -- Predefined snippets
+      "onsails/lspkind.nvim",             -- VS Code-like icons
     },
     config = function()
       local cmp = require('cmp')
       local luasnip = require('luasnip')
+      local lspkind = require('lspkind')
+      
+      -- Load VS Code style snippets
       require("luasnip.loaders.from_vscode").lazy_load()
-
+      
       cmp.setup({
         snippet = {
           expand = function(args)
             luasnip.lsp_expand(args.body)
           end,
         },
+        
+        -- Enhanced key mappings
         mapping = cmp.mapping.preset.insert({
+          ['<C-b>'] = cmp.mapping.scroll_docs(-4),
+          ['<C-f>'] = cmp.mapping.scroll_docs(4),
           ['<C-Space>'] = cmp.mapping.complete(),
-          ['<CR>'] = cmp.mapping.confirm({ select = true }),
+          ['<C-e>'] = cmp.mapping.abort(),
+          ['<CR>'] = cmp.mapping.confirm({ 
+            behavior = cmp.ConfirmBehavior.Replace,
+            select = true 
+          }),
+          
+          -- Tab/S-Tab for navigation with snippet support
           ['<Tab>'] = cmp.mapping(function(fallback)
             if cmp.visible() then
               cmp.select_next_item()
+            elseif luasnip.expand_or_jumpable() then
+              luasnip.expand_or_jump()
             else
               fallback()
             end
           end, { 'i', 's' }),
+          
           ['<S-Tab>'] = cmp.mapping(function(fallback)
             if cmp.visible() then
               cmp.select_prev_item()
+            elseif luasnip.jumpable(-1) then
+              luasnip.jump(-1)
             else
               fallback()
             end
           end, { 'i', 's' }),
         }),
+        
+        -- Source priority and configuration
         sources = cmp.config.sources({
-          { name = "nvim_lsp", max_item_count = 10 },
-          { name = "llm",      max_item_count = 5 },
-          { name = "luasnip",  max_item_count = 5 },
-          { name = "buffer",   max_item_count = 8, keyword_length = 4 },
-          { name = "path",     max_item_count = 5 },
+          { name = "nvim_lsp",  priority = 1000, max_item_count = 15 },
+          { name = "luasnip",   priority = 900,  max_item_count = 5 },
+          { name = "llm",       priority = 800,  max_item_count = 3 },  -- AI suggestions
+        }, {
+          { name = "buffer",    priority = 500,  max_item_count = 5, keyword_length = 3 },
+          { name = "path",      priority = 400,  max_item_count = 5 },
         }),
+        
+        -- Formatting with icons
+        formatting = {
+          format = lspkind.cmp_format({
+            mode = 'symbol_text',
+            maxwidth = 50,
+            ellipsis_char = '...',
+            before = function(entry, vim_item)
+              -- Add source indicator
+              vim_item.menu = ({
+                nvim_lsp = "[LSP]",
+                luasnip = "[Snip]",
+                llm = "[AI]",
+                buffer = "[Buf]",
+                path = "[Path]",
+              })[entry.source.name]
+              return vim_item
+            end,
+          }),
+        },
+        
+        -- Performance optimization
         performance = {
-          max_view_entries = 8,
-          debounce = 150,
-          throttle = 80,
-          fetching_timeout = 100,
+          debounce = 60,                  -- Faster debounce for better UX
+          throttle = 30,                  -- Faster throttle
+          fetching_timeout = 500,         -- Reasonable timeout
+          max_view_entries = 12,          -- Limit visible items
+        },
+        
+        -- Experimental features
+        experimental = {
+          ghost_text = true,              -- Show ghost text preview
+        },
+        
+        -- Window configuration
+        window = {
+          completion = cmp.config.window.bordered(),
+          documentation = cmp.config.window.bordered(),
+        },
+        
+        -- Sorting for better relevance
+        sorting = {
+          priority_weight = 2,
+          comparators = {
+            cmp.config.compare.offset,
+            cmp.config.compare.exact,
+            cmp.config.compare.score,
+            cmp.config.compare.recently_used,
+            cmp.config.compare.locality,
+            cmp.config.compare.kind,
+            cmp.config.compare.sort_text,
+            cmp.config.compare.length,
+            cmp.config.compare.order,
+          },
         },
       })
-
-      cmp.setup.filetype({ 'json', 'yaml' }, {
+      
+      -- Specific configuration for different file types
+      cmp.setup.filetype({ 'json', 'yaml', 'toml' }, {
         sources = cmp.config.sources({
-          { name = 'nvim_lsp', max_item_count = 10 },
-          { name = 'buffer', max_item_count = 8, keyword_length = 4 },
-          { name = 'path', max_item_count = 5 },
+          { name = 'nvim_lsp', max_item_count = 15 },
+          { name = 'buffer',   max_item_count = 8, keyword_length = 3 },
+          { name = 'path',     max_item_count = 5 },
         }),
+      })
+      
+      -- Command line completion
+      cmp.setup.cmdline({ '/', '?' }, {
+        mapping = cmp.mapping.preset.cmdline(),
+        sources = {
+          { name = 'buffer' }
+        }
+      })
+      
+      cmp.setup.cmdline(':', {
+        mapping = cmp.mapping.preset.cmdline(),
+        sources = cmp.config.sources({
+          { name = 'path' }
+        }, {
+          { name = 'cmdline' }
+        }),
+        matching = { disallow_symbol_nonprefix_matching = false }
       })
     end,
   },
@@ -521,7 +1523,6 @@ require("lazy").setup({
       vim.cmd('colorscheme tokyonight-storm')
     end
   },
-
   {
       'ggandor/leap.nvim',
       event = "VeryLazy",
@@ -608,7 +1609,7 @@ require("lazy").setup({
       })
     end
   },
-
+  
   -- far.vim - Find and replace with performance in mind
   {
     "brooth/far.vim",
@@ -761,113 +1762,54 @@ require("lazy").setup({
       "nvim-treesitter/nvim-treesitter-textobjects",
     },
     config = function()
-      -- ADDED: Missing sprintf function
-      local sprintf = string.format
+      -- File size thresholds
+      local MAX_FILE_SIZE = 10 * 1024 * 1024 -- 10MB
 
-      -- UNIFIED FILE SIZE THRESHOLDS (aligned across all configs)
-      -- These should match your performance.lua and large_file.lua thresholds
-      local SMALL_FILE_THRESHOLD = 512 * 1024        -- 512KB - full features
-      local MEDIUM_FILE_THRESHOLD = 5 * 1024 * 1024  -- 5MB - reduce textobjects
-      local LARGE_FILE_THRESHOLD = 50 * 1024 * 1024  -- 50MB - minimal TreeSitter
-      local HUGE_FILE_THRESHOLD = 500 * 1024 * 1024  -- 500MB - disable TreeSitter
-
-      -- FIXED: Helper function to get file size safely with vim.uv support
+      -- Get file size helper
       local function get_file_size(buf)
         local name = vim.api.nvim_buf_get_name(buf or 0)
-        if name == "" or name == nil then return 0 end
+        if name == "" then return 0 end
         
-        -- Use vim.uv.fs_stat for better performance (vim.loop is deprecated in newer Neovim)
         local stat = vim.uv and vim.uv.fs_stat or vim.loop.fs_stat
         local ok, stats = pcall(stat, name)
         if ok and stats then
           return stats.size or 0
         end
         
-        -- Fallback to vim.fn.getfsize
         local size = vim.fn.getfsize(name)
         return size > 0 and size or 0
       end
 
-      -- Optimized disable function with proper tier logic
-      local function should_disable_feature(lang, buf, feature_level)
-        local filesize = get_file_size(buf)
-        
-        -- Never disable for very small files (< 512KB)
-        if filesize <= SMALL_FILE_THRESHOLD then
-          return false
-        end
-        
-        -- Feature level tiers:
-        -- 1 = basic features (highlight, indent) - disable at HUGE_FILE_THRESHOLD
-        -- 2 = advanced features (textobjects) - disable at LARGE_FILE_THRESHOLD  
-        -- 3 = complex features (move, swap, lsp_interop) - disable at MEDIUM_FILE_THRESHOLD
-        
-        if feature_level == 1 and filesize >= HUGE_FILE_THRESHOLD then
-          return true
-        elseif feature_level == 2 and filesize >= LARGE_FILE_THRESHOLD then
-          return true
-        elseif feature_level == 3 and filesize >= MEDIUM_FILE_THRESHOLD then
-          return true
-        end
-        
-        -- Special cases for resource-intensive language combinations
-        local intensive_langs = { "markdown", "html", "xml", "json", "yaml" }
-        if vim.tbl_contains(intensive_langs, lang) then
-          if feature_level >= 2 and filesize >= (MEDIUM_FILE_THRESHOLD / 2) then -- 2.5MB
-            return true
-          end
-        end
-        
-        return false
+      -- Disable function for large files
+      local function disable_for_large_files(lang, buf)
+        return get_file_size(buf) > MAX_FILE_SIZE
       end
 
       require("nvim-treesitter.configs").setup({
-        -- Essential parsers (optimized list)
         ensure_installed = {
-          "lua", "vim", "vimdoc", "query", -- Core Neovim
-          "rust", "go", "python", "javascript", "typescript", "tsx", -- Popular languages
-          "json", "yaml", "markdown", "markdown_inline", -- Data formats
-          "bash", "sql", "html", "css", "c", "cpp" -- Utilities
+          "lua", "vim", "vimdoc", "query",
+          "rust", "go", "python", "javascript", "typescript", "tsx",
+          "json", "yaml", "markdown", "markdown_inline",
+          "bash", "sql", "html", "css", "c", "cpp"
         },
 
-        -- Performance settings
         sync_install = false,
         auto_install = true,
-        ignore_install = {}, -- Don't ignore any parsers
 
-        -- TIER 1: Basic syntax highlighting and indentation
         highlight = {
           enable = true,
-          disable = function(lang, buf)
-            return should_disable_feature(lang, buf, 1) -- Only disable for huge files (500MB+)
-          end,
+          disable = disable_for_large_files,
           additional_vim_regex_highlighting = false,
-          use_languagetree = true, -- Better for large files
         },
 
         indent = {
           enable = true,
-          disable = function(lang, buf)
-            -- More conservative for indent - can cause performance issues
-            local filesize = get_file_size(buf)
-            if filesize >= LARGE_FILE_THRESHOLD then return true end
-            
-            -- Known problematic languages for indentation
-            local problematic_langs = { "python", "yaml", "markdown" }
-            if vim.tbl_contains(problematic_langs, lang) and filesize >= MEDIUM_FILE_THRESHOLD then
-              return true
-            end
-            
-            return false
-          end,
+          disable = disable_for_large_files,
         },
 
-        -- TIER 2: Advanced selection features
         incremental_selection = {
           enable = true,
-          disable = function(lang, buf)
-            return should_disable_feature(lang, buf, 2) -- Disable at 50MB+
-          end,
+          disable = disable_for_large_files,
           keymaps = {
             init_selection = '<CR>',
             scope_incremental = '<CR>',
@@ -876,13 +1818,10 @@ require("lazy").setup({
           },
         },
 
-        -- TIER 3: Complex textobjects (most resource intensive)
         textobjects = {
           select = {
             enable = true,
-            disable = function(lang, buf)
-              return should_disable_feature(lang, buf, 3) -- Disable at 5MB+
-            end,
+            disable = disable_for_large_files,
             lookahead = true,
             keymaps = {
               ["af"] = "@function.outer",
@@ -894,19 +1833,11 @@ require("lazy").setup({
               ["ab"] = "@block.outer",
               ["ib"] = "@block.inner",
             },
-            selection_modes = {
-              ['@parameter.outer'] = 'v',
-              ['@function.outer'] = 'V',
-              ['@class.outer'] = '<c-v>',
-            },
-            include_surrounding_whitespace = false, -- Performance optimization
           },
 
           move = {
             enable = true,
-            disable = function(lang, buf)
-              return should_disable_feature(lang, buf, 3) -- Disable at 5MB+
-            end,
+            disable = disable_for_large_files,
             set_jumps = true,
             goto_next_start = {
               ["]f"] = "@function.outer",
@@ -930,9 +1861,7 @@ require("lazy").setup({
 
           swap = {
             enable = true,
-            disable = function(lang, buf)
-              return should_disable_feature(lang, buf, 3) -- Disable at 5MB+
-            end,
+            disable = disable_for_large_files,
             swap_next = {
               ["<leader>sp"] = "@parameter.inner",
             },
@@ -943,156 +1872,43 @@ require("lazy").setup({
 
           lsp_interop = {
             enable = true,
-            disable = function(lang, buf)
-              return should_disable_feature(lang, buf, 3) -- Disable at 5MB+
-            end,
+            disable = disable_for_large_files,
             border = 'rounded',
-            floating_preview_opts = {
-              max_width = 80,
-              max_height = 20,
-            },
             peek_definition_code = {
               ["<leader>df"] = "@function.outer",
               ["<leader>dc"] = "@class.outer",
             },
           },
         },
-
-        -- Performance optimizations
-        query_linter = {
-          enable = true,
-          use_virtual_text = true,
-          lint_events = {"BufWrite", "CursorHold"},
-        },
       })
 
-      -- Enhanced performance management with proper tiers
-      local function manage_treesitter_performance(buf)
-        local filesize = get_file_size(buf)
-        local filename = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ":t")
-        
-        -- Set appropriate syntax sync for different file sizes
-        if filesize <= SMALL_FILE_THRESHOLD then
-          -- Small files: full performance
-          vim.bo[buf].synmaxcol = 0 -- No limit
-          pcall(function() vim.cmd("syntax sync fromstart") end)
-          
-        elseif filesize <= MEDIUM_FILE_THRESHOLD then
-          -- Medium files: balanced performance
-          vim.bo[buf].synmaxcol = 300
-          pcall(function() vim.cmd("syntax sync minlines=100 maxlines=200") end)
-          vim.notify(sprintf("TreeSitter optimized for medium file: %s (%.1fMB)", 
-            filename, filesize / 1024 / 1024), vim.log.levels.INFO)
-          
-        elseif filesize <= LARGE_FILE_THRESHOLD then
-          -- Large files: reduced features
-          vim.bo[buf].synmaxcol = 200
-          pcall(function() vim.cmd("syntax sync minlines=50 maxlines=100") end)
-          vim.notify(sprintf("TreeSitter reduced for large file: %s (%.1fMB)", 
-            filename, filesize / 1024 / 1024), vim.log.levels.WARN)
-          
-        else
-          -- Huge files: minimal features
-          vim.bo[buf].synmaxcol = 128
-          pcall(function() vim.cmd("syntax sync minlines=10 maxlines=50") end)
-          vim.notify(sprintf("TreeSitter minimal for huge file: %s (%.1fMB)", 
-            filename, filesize / 1024 / 1024), vim.log.levels.ERROR)
-        end
-      end
-
-      -- Performance management autocommands
-      local group = vim.api.nvim_create_augroup("TreeSitterPerformance", { clear = true })
-
+      -- Performance optimization for large files
       vim.api.nvim_create_autocmd({"BufReadPost", "BufNewFile"}, {
-        group = group,
-        pattern = "*", -- Added explicit pattern
+        group = vim.api.nvim_create_augroup("TreeSitterPerformance", { clear = true }),
         callback = function(ev)
-          -- Defer to ensure buffer is fully loaded
-          vim.defer_fn(function()
-            if vim.api.nvim_buf_is_valid(ev.buf) then
-              manage_treesitter_performance(ev.buf)
-            end
-          end, 50) -- Increased delay for stability
-        end
-      })
-
-      -- Cleanup for performance on buffer changes
-      vim.api.nvim_create_autocmd("BufWinLeave", {
-        group = group,
-        pattern = "*", -- Added explicit pattern
-        callback = function()
-          -- Force garbage collection when leaving large buffers
-          local filesize = get_file_size()
-          if filesize > MEDIUM_FILE_THRESHOLD then
-            vim.defer_fn(function()
-              collectgarbage("collect")
-            end, 100)
+          local filesize = get_file_size(ev.buf)
+          if filesize > MAX_FILE_SIZE then
+            local filename = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(ev.buf), ":t")
+            vim.notify(string.format("Large file detected: %s (%.1fMB) - TreeSitter disabled", 
+              filename, filesize / 1024 / 1024), vim.log.levels.WARN)
+            
+            -- Additional performance optimizations for large files
+            vim.bo[ev.buf].synmaxcol = 200
+            vim.bo[ev.buf].syntax = ""
           end
         end
       })
 
-      -- Enhanced user commands
+      -- Utility commands
       vim.api.nvim_create_user_command("TSStatus", function()
         local buf = vim.api.nvim_get_current_buf()
         local filesize = get_file_size(buf)
-        local bufname = vim.api.nvim_buf_get_name(buf)
-        local filetype = vim.bo[buf].filetype
-        local filename = vim.fn.fnamemodify(bufname, ":t")
+        local filename = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ":t")
+        local enabled = filesize <= MAX_FILE_SIZE
         
-        -- Determine performance tier
-        local tier, tier_desc
-        if filesize <= SMALL_FILE_THRESHOLD then
-          tier, tier_desc = "SMALL", "Full TreeSitter features"
-        elseif filesize <= MEDIUM_FILE_THRESHOLD then
-          tier, tier_desc = "MEDIUM", "Reduced textobjects"  
-        elseif filesize <= LARGE_FILE_THRESHOLD then
-          tier, tier_desc = "LARGE", "Basic features only"
-        else
-          tier, tier_desc = "HUGE", "Minimal TreeSitter"
-        end
-        
-        print(string.format("=== TreeSitter Status ==="))
-        print(string.format("File: %s", filename))
-        print(string.format("Size: %.2f KB (%.2f MB)", filesize / 1024, filesize / 1024 / 1024))
-        print(string.format("Type: %s", filetype))
-        print(string.format("Tier: %s - %s", tier, tier_desc))
-        print("")
-        
-        -- Check feature status
-        local features = {
-          { name = "Highlight", level = 1, threshold = HUGE_FILE_THRESHOLD },
-          { name = "Indent", level = 1, threshold = LARGE_FILE_THRESHOLD },
-          { name = "Selection", level = 2, threshold = LARGE_FILE_THRESHOLD },
-          { name = "Textobjects", level = 3, threshold = MEDIUM_FILE_THRESHOLD },
-        }
-        
-        for _, feature in ipairs(features) do
-          local disabled = should_disable_feature(filetype, buf, feature.level)
-          local status = disabled and "❌ DISABLED" or "✅ ENABLED"
-          print(string.format("%-12s %s", feature.name .. ":", status))
-        end
-      end, { desc = "Show detailed TreeSitter status" })
-
-      vim.api.nvim_create_user_command("TSOptimize", function()
-        local buf = vim.api.nvim_get_current_buf()
-        manage_treesitter_performance(buf)
-        vim.notify("TreeSitter performance optimized for current buffer", vim.log.levels.INFO)
-      end, { desc = "Manually optimize TreeSitter for current buffer" })
-
-      vim.api.nvim_create_user_command("TSForceEnable", function()
-        local buf = vim.api.nvim_get_current_buf()
-        pcall(function() vim.cmd("TSBufEnable highlight") end)
-        pcall(function() vim.cmd("TSBufEnable indent") end) 
-        pcall(function() vim.cmd("TSBufEnable incremental_selection") end)
-        vim.notify("TreeSitter features force-enabled (may impact performance)", vim.log.levels.WARN)
-      end, { desc = "Force enable all TreeSitter features" })
-
-      vim.api.nvim_create_user_command("TSForceDisable", function()
-        pcall(function() vim.cmd("TSBufDisable highlight") end)
-        pcall(function() vim.cmd("TSBufDisable indent") end)
-        pcall(function() vim.cmd("TSBufDisable incremental_selection") end)
-        vim.notify("TreeSitter features disabled", vim.log.levels.INFO)
-      end, { desc = "Force disable TreeSitter features" })
+        print(string.format("File: %s (%.2fMB)", filename, filesize / 1024 / 1024))
+        print(string.format("TreeSitter: %s", enabled and "ENABLED" or "DISABLED (>10MB)"))
+      end, { desc = "Show TreeSitter status for current buffer" })
     end,
   },
 
@@ -1100,6 +1916,18 @@ require("lazy").setup({
   { "nvim-lua/plenary.nvim", lazy = true },
   { "nvim-tree/nvim-web-devicons", lazy = true },
   { "MunifTanjim/nui.nvim", lazy = true },
+
+  -- Flutter specific configuration
+  {
+      'nvim-flutter/flutter-tools.nvim',
+      lazy = false,
+      dependencies = {
+          'nvim-lua/plenary.nvim',
+          'stevearc/dressing.nvim', -- optional for vim.ui.select
+      },
+      config = true,
+  }
+
 }, {
   checker = { enabled = false }, -- Disable update checking
   performance = {
