@@ -287,6 +287,12 @@ Automatically highlights f/F/t/T targets:
 | `aa` | Visual/Operator | Parameter outer | Select parameter |
 | `ia` | Visual/Operator | Parameter inner | Select parameter value |
 
+**Incremental Selection**:
+- `gnn`: Start incremental selection (init selection)
+- `grc`: Expand to outer scope
+- `<Tab>`: Expand to next node
+- `<S-Tab>`: Shrink to previous node
+
 **Movement**:
 - `]f` / `[f`: Next/previous function start
 - `]c` / `[c`: Next/previous class start
