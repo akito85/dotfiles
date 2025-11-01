@@ -9,7 +9,8 @@ require("lazy").setup({
     "williamboman/mason-lspconfig.nvim",
     config = function()
       require("mason-lspconfig").setup {
-        ensure_installed = { "pyright", "ts_ls", "clangd", "rust_analyzer", "gopls", "julials", "cssls", "jsonls", "yamlls", "tailwindcss" },
+        ensure_installed = { "basedpyright", "ts_ls", "clangd", "rust_analyzer", "gopls", "julials", "cssls", "jsonls", "yamlls", "tailwindcss", "kotlin_language_server" },
+        automatic_installation = true,
       }
     end,
   },
@@ -78,10 +79,9 @@ require("lazy").setup({
     "neovim/nvim-lspconfig",
     event = { "BufReadPre", "BufNewFile" },
     config = function()
-      -- Modern way to access lspconfig
-      local lspconfig = vim.lsp.config or require('lspconfig')
+      -- Use new vim.lsp.config API (Neovim 0.11+)
       local cmp_nvim_lsp = require('cmp_nvim_lsp')
-      
+
       -- Enhanced capabilities with latest defaults
       local capabilities = cmp_nvim_lsp.default_capabilities(vim.lsp.protocol.make_client_capabilities())
       
@@ -139,7 +139,7 @@ require("lazy").setup({
         }
       )
 
-      -- Common server setup function
+      -- Common server setup function using new vim.lsp.config API
       local function setup_server(server_name, opts)
         local server_opts = {
           capabilities = capabilities,
@@ -147,12 +147,13 @@ require("lazy").setup({
             debounce_text_changes = 150,
           },
         }
-        
+
         if opts then
           server_opts = vim.tbl_deep_extend('force', server_opts, opts)
         end
-        
-        lspconfig[server_name].setup(server_opts)
+
+        -- Use new vim.lsp.config API
+        vim.lsp.config[server_name] = server_opts
       end
 
       -- Python - Basedpyright (modern successor to Pyright)
@@ -239,7 +240,7 @@ require("lazy").setup({
           '--enable-config',
           '--offset-encoding=utf-16',
         },
-        root_dir = lspconfig.util.root_pattern(
+        root_markers = {
           '.clangd',
           '.clang-tidy',
           '.clang-format',
@@ -247,7 +248,7 @@ require("lazy").setup({
           'compile_flags.txt',
           'configure.ac',
           '.git'
-        ),
+        },
         init_options = {
           usePlaceholders = true,
           completeUnimported = true,
@@ -665,7 +666,7 @@ require("lazy").setup({
             },
           },
         },
-        root_dir = lspconfig.util.root_pattern('settings.gradle', 'settings.gradle.kts', 'build.gradle', 'build.gradle.kts', '.git'),
+        root_markers = { 'settings.gradle', 'settings.gradle.kts', 'build.gradle', 'build.gradle.kts', '.git' },
         init_options = {
           storagePath = vim.fn.expand('~/.cache/kotlin-language-server'),
         },
@@ -696,7 +697,7 @@ require("lazy").setup({
             '-configuration', home .. '/.local/share/nvim/mason/packages/jdtls/config_linux',
             '-data', workspace_dir,
           },
-          root_dir = lspconfig.util.root_pattern('.git', 'mvnw', 'gradlew', 'pom.xml', 'build.gradle', 'build.gradle.kts'),
+          root_markers = { '.git', 'mvnw', 'gradlew', 'pom.xml', 'build.gradle', 'build.gradle.kts' },
           settings = {
             java = {
               home = '/usr/lib/jvm/java-21-openjdk', -- Adjust to your Java 21+ installation
@@ -785,6 +786,50 @@ require("lazy").setup({
       -- Dart Language Server setup
       -- Note: Dart LSP is bundled with Flutter/Dart SDK, no Mason installation needed
       -- flutter-tools.nvim will handle dartls automatically
+
+      -- Auto-enable LSP servers on FileType (required for vim.lsp.config API)
+      vim.api.nvim_create_autocmd('FileType', {
+        callback = function(args)
+          local bufnr = args.buf
+          local filetype = vim.bo[bufnr].filetype
+
+          -- Map of filetypes to server names
+          local ft_to_server = {
+            python = 'basedpyright',
+            javascript = 'ts_ls',
+            javascriptreact = 'ts_ls',
+            typescript = 'ts_ls',
+            typescriptreact = 'ts_ls',
+            c = 'clangd',
+            cpp = 'clangd',
+            objc = 'clangd',
+            objcpp = 'clangd',
+            cuda = 'clangd',
+            rust = 'rust_analyzer',
+            go = 'gopls',
+            gomod = 'gopls',
+            gowork = 'gopls',
+            gotmpl = 'gopls',
+            julia = 'julials',
+            css = 'cssls',
+            scss = 'cssls',
+            less = 'cssls',
+            json = 'jsonls',
+            jsonc = 'jsonls',
+            yaml = 'yamlls',
+            html = 'tailwindcss',
+            vue = 'tailwindcss',
+            svelte = 'tailwindcss',
+            kotlin = 'kotlin_language_server',
+            java = 'jdtls',
+          }
+
+          local server = ft_to_server[filetype]
+          if server and vim.lsp.config[server] then
+            vim.lsp.enable(server)
+          end
+        end,
+      })
 
       -- Enhanced keymaps with modern vim.keymap.set
       local function map(mode, lhs, rhs, opts)
