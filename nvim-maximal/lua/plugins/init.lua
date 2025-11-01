@@ -1863,8 +1863,8 @@ require("lazy").setup({
           enable = true,
           disable = disable_for_large_files,
           keymaps = {
-            init_selection = '<CR>',
-            scope_incremental = '<CR>',
+            init_selection = 'gnn',     -- Changed from <CR> to avoid conflicts
+            scope_incremental = 'grc',  -- Mnemonic: "go repeat current"
             node_incremental = '<TAB>',
             node_decremental = '<S-TAB>',
           },
