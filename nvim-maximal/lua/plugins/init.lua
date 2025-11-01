@@ -9,7 +9,7 @@ require("lazy").setup({
     "williamboman/mason-lspconfig.nvim",
     config = function()
       require("mason-lspconfig").setup {
-        ensure_installed = { "basedpyright", "ts_ls", "clangd", "rust_analyzer", "gopls", "julials", "cssls", "jsonls", "yamlls", "tailwindcss", "kotlin_language_server" },
+        ensure_installed = { "basedpyright", "ts_ls", "clangd", "rust_analyzer", "gopls", "julia-lsp", "cssls", "jsonls", "yamlls", "tailwindcss", "kotlin_language_server" },
         automatic_installation = true,
       }
     end,
@@ -444,6 +444,9 @@ require("lazy").setup({
 
       -- Julia - julials with modern configuration
       setup_server('julials', {
+        cmd = { 'julia-lsp' },
+        filetypes = { 'julia' },
+        root_markers = { 'Project.toml', 'JuliaProject.toml', 'Manifest.toml', '.git' },
         settings = {
           julia = {
             lint = {
