@@ -1572,11 +1572,9 @@ require("lazy").setup({
       'ggandor/leap.nvim',
       event = "VeryLazy",
       config = function()
-          local leap = require('leap')
-          leap.add_default_mappings()
-          -- Reset 's' for compatibility with vim-surround if needed
-          vim.keymap.set({'n', 'x', 'o'}, 's', '<Plug>(leap-forward-to)', {})
-          vim.keymap.set({'n', 'x', 'o'}, 'S', '<Plug>(leap-backward-to)', {})
+          -- Use modern Leap API (add_default_mappings is sufficient)
+          -- This sets up 's' for forward leap and 'S' for backward leap
+          require('leap').add_default_mappings()
       end,
   },
   {
