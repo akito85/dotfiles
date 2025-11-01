@@ -782,9 +782,9 @@ require("lazy").setup({
         setup_server('jdtls', get_jdtls_config())
       end
 
-      -- Spring Boot Language Server (STS4) - handled by nvim-java plugin
-      -- Note: Spring Boot Tools (STS4) is automatically handled by nvim-java
-      -- No separate mason installation needed - it's included with nvim-java setup
+      -- Spring Boot Language Server (STS4)
+      -- Note: nvim-java is disabled (deprecated API), so Spring Boot Tools must be
+      -- configured manually if needed via nvim-jdtls or Mason
       
       -- Dart Language Server setup
       -- Note: Dart LSP is bundled with Flutter/Dart SDK, no Mason installation needed
@@ -1043,40 +1043,42 @@ require("lazy").setup({
         end,
       },
       
-      {
-        'nvim-java/nvim-java', -- For comprehensive Java support
-        ft = { 'java' },
-        config = function()
-          require('java').setup({
-            -- Your nvim-java configuration
-            root_markers = {
-              'settings.gradle',
-              'settings.gradle.kts',
-              'pom.xml',
-              'build.gradle',
-              'mvnw',
-              'gradlew',
-              'build.gradle.kts',
-              '.git',
-            },
-            java_test = {
-              enable = true,
-            },
-            java_debug_adapter = {
-              enable = true,
-            },
-            spring_boot_tools = {
-              enable = true,
-            },
-            jdk = {
-              auto_install = false,
-            },
-            notifications = {
-              dap = true,
-            },
-          })
-        end,
-      },
+      -- DISABLED: nvim-java uses deprecated lspconfig API (not compatible with Neovim 0.11+)
+      -- Using nvim-jdtls instead (configured below) which provides the same features
+      -- {
+      --   'nvim-java/nvim-java',
+      --   enabled = false, -- Disabled until plugin updates to vim.lsp.config API
+      --   ft = { 'java' },
+      --   config = function()
+      --     require('java').setup({
+      --       root_markers = {
+      --         'settings.gradle',
+      --         'settings.gradle.kts',
+      --         'pom.xml',
+      --         'build.gradle',
+      --         'mvnw',
+      --         'gradlew',
+      --         'build.gradle.kts',
+      --         '.git',
+      --       },
+      --       java_test = {
+      --         enable = true,
+      --       },
+      --       java_debug_adapter = {
+      --         enable = true,
+      --       },
+      --       spring_boot_tools = {
+      --         enable = true,
+      --       },
+      --       jdk = {
+      --         auto_install = false,
+      --       },
+      --       notifications = {
+      --         dap = true,
+      --       },
+      --     })
+      --   end,
+      -- },
 
       -- Alternative: Manual nvim-jdtls setup (if you prefer more control)
       {
