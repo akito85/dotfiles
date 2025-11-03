@@ -9,7 +9,7 @@ require("lazy").setup({
     "williamboman/mason-lspconfig.nvim",
     config = function()
       require("mason-lspconfig").setup {
-        ensure_installed = { "basedpyright", "ts_ls", "clangd", "rust_analyzer", "gopls", "julials", "cssls", "jsonls", "yamlls", "tailwindcss", "kotlin_language_server" },
+        ensure_installed = { "basedpyright", "ts_ls", "clangd", "rust_analyzer", "gopls", "julials", "cssls", "jsonls", "yamlls", "tailwindcss", "kotlin_language_server", "intelephense" },
         automatic_installation = true,
       }
     end,
@@ -675,6 +675,57 @@ require("lazy").setup({
         },
       })
 
+      -- PHP - Intelephense
+      setup_server('intelephense', {
+        settings = {
+          intelephense = {
+            files = {
+              maxSize = 10000000,
+              associations = { '*.php', '*.phtml' },
+              exclude = {
+                '**/.git/**',
+                '**/.svn/**',
+                '**/node_modules/**',
+                '**/bower_components/**',
+                '**/vendor/**/{Tests,tests}/**',
+                '**/.history/**',
+              },
+            },
+            stubs = {
+              'apache', 'bcmath', 'bz2', 'calendar', 'Core', 'ctype', 'curl',
+              'date', 'dba', 'dom', 'enchant', 'exif', 'fileinfo', 'filter',
+              'ftp', 'gd', 'gettext', 'hash', 'iconv', 'imap', 'intl', 'json',
+              'ldap', 'libxml', 'mbstring', 'meta', 'mysqli', 'oci8', 'odbc',
+              'openssl', 'pcntl', 'pcre', 'PDO', 'pdo_mysql', 'pdo_pgsql',
+              'pdo_sqlite', 'pgsql', 'Phar', 'posix', 'readline', 'Reflection',
+              'session', 'SimpleXML', 'soap', 'sockets', 'sodium', 'SPL',
+              'sqlite3', 'standard', 'superglobals', 'tokenizer', 'xml',
+              'xmlreader', 'xmlrpc', 'xmlwriter', 'xsl', 'zip', 'zlib',
+              'wordpress', 'phpunit', 'laravel', 'symfony',
+            },
+            completion = {
+              triggerParameterHints = true,
+              insertUseDeclaration = true,
+              fullyQualifyGlobalConstantsAndFunctions = false,
+              maxItems = 100,
+            },
+            format = {
+              enable = true,
+              braces = 'psr12',
+            },
+            diagnostics = {
+              enable = true,
+              run = 'onType',
+              embeddedLanguages = true,
+            },
+            telemetry = {
+              enabled = false,
+            },
+          },
+        },
+        filetypes = { 'php', 'phtml' },
+      })
+
       -- Java - Eclipse JDT LS (Use nvim-jdtls plugin for enhanced features)
       -- Note: For full Java support, use nvim-jdtls plugin instead of basic lspconfig
       -- This is a fallback configuration for basic Java support
@@ -824,6 +875,8 @@ require("lazy").setup({
             vue = 'tailwindcss',
             svelte = 'tailwindcss',
             kotlin = 'kotlin_language_server',
+            php = 'intelephense',
+            phtml = 'intelephense',
             java = 'jdtls',
           }
 
@@ -1285,12 +1338,13 @@ require("lazy").setup({
     config = function()
       local lint = require("lint")
 
-      -- Configure oxlint for TypeScript/JavaScript
+      -- Configure linters by filetype
       lint.linters_by_ft = {
         javascript = { "oxlint" },
         javascriptreact = { "oxlint" },
         typescript = { "oxlint" },
         typescriptreact = { "oxlint" },
+        php = { "phpstan" },
       }
 
       -- Auto-lint on save and text changes
