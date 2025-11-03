@@ -1278,6 +1278,44 @@ require("lazy").setup({
     },
   },
 
+  -- Linting with nvim-lint
+  {
+    "mfussenegger/nvim-lint",
+    event = { "BufReadPost", "BufNewFile", "BufWritePost" },
+    config = function()
+      local lint = require("lint")
+
+      -- Configure oxlint for TypeScript/JavaScript
+      lint.linters_by_ft = {
+        javascript = { "oxlint" },
+        javascriptreact = { "oxlint" },
+        typescript = { "oxlint" },
+        typescriptreact = { "oxlint" },
+      }
+
+      -- Auto-lint on save and text changes
+      local lint_augroup = vim.api.nvim_create_augroup("Linting", { clear = true })
+      vim.api.nvim_create_autocmd({ "BufWritePost", "BufReadPost", "InsertLeave" }, {
+        group = lint_augroup,
+        callback = function()
+          -- Only lint if file is not too large (same threshold as LSP)
+          local max_filesize = 10 * 1024 * 1024 -- 10MB
+          local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(0))
+          if ok and stats and stats.size > max_filesize then
+            return
+          end
+
+          lint.try_lint()
+        end,
+      })
+
+      -- Manual trigger keymap
+      vim.keymap.set('n', '<leader>l', function()
+        lint.try_lint()
+      end, { desc = 'Trigger linting for current file' })
+    end,
+  },
+
   -- Completion
   {
     "hrsh7th/nvim-cmp",
