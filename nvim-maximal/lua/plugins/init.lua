@@ -1622,14 +1622,17 @@ require("lazy").setup({
           {
             event = "file_opened",
             handler = function(file_path)
-              -- Don't close the tree when opening a file
-              -- and don't clear the buffer
-              -- require("neo-tree.sources.manager").close_all()
-              -- Optionally focus the opened file
-              -- vim.cmd("e " .. vim.fn.fnameescape(file_path))
-              vim.defer_fn(function()
-                vim.cmd("e " .. vim.fn.fnameescape(file_path))
-              end, 10)
+              -- Check if current buffer has unsaved changes
+              local current_buf = vim.api.nvim_get_current_buf()
+              local is_modified = vim.api.nvim_buf_get_option(current_buf, 'modified')
+
+              -- Only force edit if buffer is not modified
+              if not is_modified then
+                vim.defer_fn(function()
+                  vim.cmd("e " .. vim.fn.fnameescape(file_path))
+                end, 10)
+              end
+              -- If buffer is modified, neo-tree will handle file opening normally
             end
           },
         },
