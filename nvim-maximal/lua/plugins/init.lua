@@ -210,14 +210,14 @@ require("lazy").setup({
           },
           javascript = {
             inlayHints = {
-              includeInlayParameterNameHints = 'all',
+              includeInlayParameterNameHints = 'none',
               includeInlayParameterNameHintsWhenArgumentMatchesName = false,
-              includeInlayVariableTypeHints = true,
-              includeInlayFunctionParameterTypeHints = true,
+              includeInlayVariableTypeHints = false,
+              includeInlayFunctionParameterTypeHints = false,
               includeInlayVariableTypeHintsWhenTypeMatchesName = false,
-              includeInlayPropertyDeclarationTypeHints = true,
-              includeInlayFunctionLikeReturnTypeHints = true,
-              includeInlayEnumMemberValueHints = true,
+              includeInlayPropertyDeclarationTypeHints = false,
+              includeInlayFunctionLikeReturnTypeHints = false,
+              includeInlayEnumMemberValueHints = false,
             },
             suggest = {
               includeCompletionsForModuleExports = true,
