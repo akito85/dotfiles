@@ -30,49 +30,30 @@ require("lazy").setup({
   },
 
   -- LSP
-  -- AI completion via local llama2.cpp
-  -- check the code below
-
+  -- AI completion via Ollama (local LLM)
   {
-    "huggingface/llm.nvim",
+    "tzachar/cmp-ai",
     event = "InsertEnter",
-    dependencies = { "hrsh7th/nvim-cmp" },
-    opts = {
-      -- llama2.cpp speaks OpenAI API
-      api_token = "",                     -- no token needed for local
-      model = "", -- llama-2-7b-chat       -- more descriptive label
-      url = "http://localhost:8012/v1/completions",
-      
-      -- Generation parameters - tuned for code completion
-      max_tokens = 64,
-      temperature = 0.1,                  -- Lower for more deterministic code
-      top_p = 0.95,
-      frequency_penalty = 0.0,
-      presence_penalty = 0.0,
-      
-      -- Prompt engineering for better code completion
-      query_params = {
-        stop = { "\n\n", "\n    ", "```", "---" },  -- Better stop tokens
-        stream = true,                    -- Enable streaming for faster response
-      },
-      
-      -- Context configuration
-      context_window = 2048,              -- Adjust based on your model
-      enable_suggestions_on_startup = false,
-      enable_suggestions_on_files = true,
-      
-      -- File type restrictions
-      ft = { 
-        "lua", "python", "rust", "go", "javascript", "typescript", 
-        "c", "cpp", "julia", "bash", "sh", "vim", "markdown" 
-      },
-      
-      -- Performance tuning
-      debounce_ms = 150,
-      request_timeout = 5000,             -- 5 second timeout
-      max_context_after = 500,            -- Characters after cursor
-      max_context_before = 1500,          -- Characters before cursor
-    },
+    dependencies = { "nvim-lua/plenary.nvim", "hrsh7th/nvim-cmp" },
+    config = function()
+      local cmp_ai = require('cmp_ai.config')
+
+      cmp_ai:setup({
+        max_lines = 100,
+        provider = 'Ollama',
+        provider_options = {
+          model = 'sam860/deepseek-r1-0528-qwen3:8b',
+        },
+        notify = true,
+        notify_callback = function(msg)
+          vim.notify(msg, vim.log.levels.INFO)
+        end,
+        run_on_every_keystroke = false,
+        ignored_file_types = {
+          -- AI completion works for all filetypes
+        },
+      })
+    end,
   },
 
   {
@@ -1383,6 +1364,7 @@ require("lazy").setup({
       "saadparwaiz1/cmp_luasnip",         -- Snippet completions
       "rafamadriz/friendly-snippets",     -- Predefined snippets
       "onsails/lspkind.nvim",             -- VS Code-like icons
+      "tzachar/cmp-ai",                   -- AI completions via Ollama
     },
     config = function()
       local cmp = require('cmp')
@@ -1436,12 +1418,12 @@ require("lazy").setup({
         sources = cmp.config.sources({
           { name = "nvim_lsp",  priority = 1000, max_item_count = 15 },
           { name = "luasnip",   priority = 900,  max_item_count = 5 },
-          { name = "llm",       priority = 800,  max_item_count = 3 },  -- AI suggestions
+          { name = "cmp_ai",    priority = 800,  max_item_count = 3 },  -- Ollama AI suggestions
         }, {
           { name = "buffer",    priority = 500,  max_item_count = 5, keyword_length = 3 },
           { name = "path",      priority = 400,  max_item_count = 5 },
         }),
-        
+
         -- Formatting with icons
         formatting = {
           format = lspkind.cmp_format({
@@ -1453,7 +1435,7 @@ require("lazy").setup({
               vim_item.menu = ({
                 nvim_lsp = "[LSP]",
                 luasnip = "[Snip]",
-                llm = "[AI]",
+                cmp_ai = "[AI]",
                 buffer = "[Buf]",
                 path = "[Path]",
               })[entry.source.name]
