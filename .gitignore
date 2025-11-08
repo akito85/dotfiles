@@ -3,3 +3,4 @@ nvim/plugin/*.lua
 alacritty/themes
 nushell/history.txt
 nvim-minimal/lazy-lock.json
+.claude
