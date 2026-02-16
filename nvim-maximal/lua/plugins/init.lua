@@ -30,31 +30,31 @@ require("lazy").setup({
   },
 
   -- LSP
-  -- AI completion via Ollama (local LLM)
-  {
-    "tzachar/cmp-ai",
-    event = "InsertEnter",
-    dependencies = { "nvim-lua/plenary.nvim", "hrsh7th/nvim-cmp" },
-    config = function()
-      local cmp_ai = require('cmp_ai.config')
-
-      cmp_ai:setup({
-        max_lines = 100,
-        provider = 'Ollama',
-        provider_options = {
-          model = 'sam860/deepseek-r1-0528-qwen3:8b',
-        },
-        notify = true,
-        notify_callback = function(msg)
-          vim.notify(msg, vim.log.levels.INFO)
-        end,
-        run_on_every_keystroke = false,
-        ignored_file_types = {
-          -- AI completion works for all filetypes
-        },
-      })
-    end,
-  },
+  -- AI completion via Ollama (local LLM) - DISABLED (uses too much memory)
+  -- {
+  --   "tzachar/cmp-ai",
+  --   event = "InsertEnter",
+  --   dependencies = { "nvim-lua/plenary.nvim", "hrsh7th/nvim-cmp" },
+  --   config = function()
+  --     local cmp_ai = require('cmp_ai.config')
+  --
+  --     cmp_ai:setup({
+  --       max_lines = 100,
+  --       provider = 'Ollama',
+  --       provider_options = {
+  --         model = 'sam860/deepseek-r1-0528-qwen3:8b',
+  --       },
+  --       notify = true,
+  --       notify_callback = function(msg)
+  --         vim.notify(msg, vim.log.levels.INFO)
+  --       end,
+  --       run_on_every_keystroke = false,
+  --       ignored_file_types = {
+  --         -- AI completion works for all filetypes
+  --       },
+  --     })
+  --   end,
+  -- },
 
   {
     "neovim/nvim-lspconfig",
@@ -715,10 +715,10 @@ require("lazy").setup({
         local workspace_path = home .. '/.cache/jdtls/workspace/'
         local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t')
         local workspace_dir = workspace_path .. project_name
-        
+
         return {
           cmd = {
-            'java',
+            home .. '/.sdkman/candidates/java/current/bin/java',
             '-Declipse.application=org.eclipse.jdt.ls.core.id1',
             '-Dosgi.bundles.defaultStartLevel=4',
             '-Declipse.product=org.eclipse.jdt.ls.core.product',
@@ -729,13 +729,13 @@ require("lazy").setup({
             '--add-opens', 'java.base/java.util=ALL-UNNAMED',
             '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
             '-jar', vim.fn.glob(home .. '/.local/share/nvim/mason/packages/jdtls/plugins/org.eclipse.equinox.launcher_*.jar'),
-            '-configuration', home .. '/.local/share/nvim/mason/packages/jdtls/config_linux',
+            '-configuration', home .. '/.local/share/nvim/mason/packages/jdtls/config_mac',
             '-data', workspace_dir,
           },
           root_markers = { '.git', 'mvnw', 'gradlew', 'pom.xml', 'build.gradle', 'build.gradle.kts' },
           settings = {
             java = {
-              home = '/usr/lib/jvm/java-21-openjdk', -- Adjust to your Java 21+ installation
+              home = home .. '/.sdkman/candidates/java/current',
               eclipse = {
                 downloadSources = true,
               },
@@ -743,8 +743,8 @@ require("lazy").setup({
                 updateBuildConfiguration = 'interactive',
                 runtimes = {
                   {
-                    name = 'JavaSE-21',
-                    path = '/usr/lib/jvm/java-21-openjdk',
+                    name = 'JavaSE-11',
+                    path = home .. '/.sdkman/candidates/java/11.0.29.fx-librca',
                     default = true,
                   },
                 },
@@ -829,6 +829,7 @@ require("lazy").setup({
           local filetype = vim.bo[bufnr].filetype
 
           -- Map of filetypes to server names
+          -- Note: Java/jdtls is handled separately by nvim-jdtls plugin (see line 1243)
           local ft_to_server = {
             python = 'basedpyright',
             javascript = 'ts_ls',
@@ -858,7 +859,7 @@ require("lazy").setup({
             kotlin = 'kotlin_language_server',
             php = 'intelephense',
             phtml = 'intelephense',
-            java = 'jdtls',
+            -- java is handled by nvim-jdtls plugin
           }
 
           local server = ft_to_server[filetype]
@@ -1119,6 +1120,9 @@ require("lazy").setup({
         'mfussenegger/nvim-jdtls',
         ft = { 'java' },
         config = function()
+          -- Create autocommand group for jdtls
+          local jdtls_augroup = vim.api.nvim_create_augroup('JdtlsSetup', { clear = true })
+
           local function jdtls_setup()
             local jdtls = require('jdtls')
             local home = vim.fn.expand('~')
@@ -1126,32 +1130,39 @@ require("lazy").setup({
             local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t')
             local workspace_dir = workspace_path .. project_name
 
-            -- Lombok support
+            -- Lombok support (optional, comment out if you don't have lombok.jar)
             local lombok_path = home .. '/.local/share/nvim/mason/packages/jdtls/lombok.jar'
-            
+            local use_lombok = vim.fn.filereadable(lombok_path) == 1
+
+            local cmd = {
+              home .. '/.sdkman/candidates/java/current/bin/java',
+              '-Declipse.application=org.eclipse.jdt.ls.core.id1',
+              '-Dosgi.bundles.defaultStartLevel=4',
+              '-Declipse.product=org.eclipse.jdt.ls.core.product',
+              '-Dlog.protocol=true',
+              '-Dlog.level=ALL',
+              '-Xmx4g',
+            }
+
+            -- Add lombok flags if available
+            if use_lombok then
+              table.insert(cmd, '-javaagent:' .. lombok_path)
+            end
+
+            -- Add remaining flags
+            table.insert(cmd, '-jar')
+            table.insert(cmd, vim.fn.glob(home .. '/.local/share/nvim/mason/packages/jdtls/plugins/org.eclipse.equinox.launcher_*.jar'))
+            table.insert(cmd, '-configuration')
+            table.insert(cmd, home .. '/.local/share/nvim/mason/packages/jdtls/config_mac')
+            table.insert(cmd, '-data')
+            table.insert(cmd, workspace_dir)
+
             local config = {
-              cmd = {
-                'java',
-                '-Declipse.application=org.eclipse.jdt.ls.core.id1',
-                '-Dosgi.bundles.defaultStartLevel=4',
-                '-Declipse.product=org.eclipse.jdt.ls.core.product',
-                '-Dlog.protocol=true',
-                '-Dlog.level=ALL',
-                '-javaagent:' .. lombok_path,
-                '-Xbootclasspath/a:' .. lombok_path,
-                '-Xmx4g',
-                '--add-modules=ALL-SYSTEM',
-                '--add-opens', 'java.base/java.util=ALL-UNNAMED',
-                '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
-                '--add-opens', 'java.base/sun.nio.fs=ALL-UNNAMED',
-                '-jar', vim.fn.glob(home .. '/.local/share/nvim/mason/packages/jdtls/plugins/org.eclipse.equinox.launcher_*.jar'),
-                '-configuration', home .. '/.local/share/nvim/mason/packages/jdtls/config_' .. (vim.fn.has('mac') == 1 and 'mac' or 'linux'),
-                '-data', workspace_dir,
-              },
+              cmd = cmd,
               root_dir = require('jdtls.setup').find_root({'.git', 'mvnw', 'gradlew', 'pom.xml', 'build.gradle', 'build.gradle.kts'}),
               settings = {
                 java = {
-                  home = vim.fn.expand('~/.sdkman/candidates/java/current'), -- Adjust to your Java installation
+                  home = home .. '/.sdkman/candidates/java/current',
                   eclipse = {
                     downloadSources = true,
                   },
@@ -1159,12 +1170,9 @@ require("lazy").setup({
                     updateBuildConfiguration = 'interactive',
                     runtimes = {
                       {
-                        name = 'JavaSE-21',
-                        path = vim.fn.expand('~/.sdkman/candidates/java/21.0.1-oracle/'),
-                      },
-                      {
-                        name = 'JavaSE-17',
-                        path = vim.fn.expand('~/.sdkman/candidates/java/17.0.9-oracle/'),
+                        name = 'JavaSE-11',
+                        path = home .. '/.sdkman/candidates/java/11.0.29.fx-librca',
+                        default = true,
                       },
                     },
                   },
@@ -1240,12 +1248,16 @@ require("lazy").setup({
               },
             }
             
+            -- Attach or start jdtls
             jdtls.start_or_attach(config)
           end
 
+          -- Create autocmd to run jdtls_setup when opening Java files
           vim.api.nvim_create_autocmd('FileType', {
+            group = jdtls_augroup,
             pattern = 'java',
             callback = jdtls_setup,
+            desc = 'Setup jdtls for Java files'
           })
         end,
       },
@@ -1364,7 +1376,7 @@ require("lazy").setup({
       "saadparwaiz1/cmp_luasnip",         -- Snippet completions
       "rafamadriz/friendly-snippets",     -- Predefined snippets
       "onsails/lspkind.nvim",             -- VS Code-like icons
-      "tzachar/cmp-ai",                   -- AI completions via Ollama
+      -- "tzachar/cmp-ai",                -- AI completions via Ollama - DISABLED (memory usage)
     },
     config = function()
       local cmp = require('cmp')
@@ -1418,7 +1430,7 @@ require("lazy").setup({
         sources = cmp.config.sources({
           { name = "nvim_lsp",  priority = 1000, max_item_count = 15 },
           { name = "luasnip",   priority = 900,  max_item_count = 5 },
-          { name = "cmp_ai",    priority = 800,  max_item_count = 3 },  -- Ollama AI suggestions
+          -- { name = "cmp_ai",    priority = 800,  max_item_count = 3 },  -- Ollama AI suggestions - DISABLED (memory usage)
         }, {
           { name = "buffer",    priority = 500,  max_item_count = 5, keyword_length = 3 },
           { name = "path",      priority = 400,  max_item_count = 5 },
@@ -1435,7 +1447,7 @@ require("lazy").setup({
               vim_item.menu = ({
                 nvim_lsp = "[LSP]",
                 luasnip = "[Snip]",
-                cmp_ai = "[AI]",
+                -- cmp_ai = "[AI]",  -- DISABLED (memory usage)
                 buffer = "[Buf]",
                 path = "[Path]",
               })[entry.source.name]
@@ -1630,24 +1642,11 @@ require("lazy").setup({
 
   -- Theme
   {
-    "folke/tokyonight.nvim",
+    "whatyouhide/vim-gotham",
     lazy = false,
     priority = 1000,
     config = function()
-      require('tokyonight').setup({
-        style = 'storm',
-        transparent = false,
-        terminal_colors = true,
-        styles = {
-          comments = { italic = true },
-          keywords = { italic = true },
-          functions = {},
-          variables = {},
-          sidebars = 'dark',
-          floats = 'dark',
-        },
-      })
-      vim.cmd('colorscheme tokyonight-storm')
+      vim.cmd('colorscheme gotham')
     end
   },
   {
@@ -1919,7 +1918,8 @@ require("lazy").setup({
           "lua", "vim", "vimdoc", "query",
           "rust", "go", "python", "javascript", "typescript", "tsx",
           "json", "yaml", "markdown", "markdown_inline",
-          "bash", "sql", "html", "css", "c", "cpp"
+          "bash", "sql", "html", "css", "c", "cpp",
+          "git_config", "git_rebase", "gitcommit", "gitignore", "gitattributes"
         },
 
         sync_install = false,
@@ -2034,10 +2034,82 @@ require("lazy").setup({
         local filesize = get_file_size(buf)
         local filename = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ":t")
         local enabled = filesize <= MAX_FILE_SIZE
-        
+
         print(string.format("File: %s (%.2fMB)", filename, filesize / 1024 / 1024))
         print(string.format("TreeSitter: %s", enabled and "ENABLED" or "DISABLED (>10MB)"))
       end, { desc = "Show TreeSitter status for current buffer" })
+
+      -- Git conflict marker detection and highlighting
+      local conflict_group = vim.api.nvim_create_augroup("GitConflictMarkers", { clear = true })
+
+      -- Define highlight groups for conflict markers
+      vim.api.nvim_set_hl(0, "GitConflictCurrent", { bg = "#2e5049", fg = "#b8cc52" })
+      vim.api.nvim_set_hl(0, "GitConflictIncoming", { bg = "#344f69", fg = "#7aa6da" })
+      vim.api.nvim_set_hl(0, "GitConflictAncestor", { bg = "#4e3f51", fg = "#c397d8" })
+      vim.api.nvim_set_hl(0, "GitConflictMarker", { bg = "#5f2f2f", fg = "#ff6b6b", bold = true })
+
+      -- Function to detect and highlight conflict markers
+      local function highlight_conflict_markers()
+        local buf = vim.api.nvim_get_current_buf()
+        local ns = vim.api.nvim_create_namespace("git_conflict_markers")
+
+        -- Clear previous highlights
+        vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        local in_conflict = false
+        local conflict_type = nil
+
+        for i, line in ipairs(lines) do
+          local line_num = i - 1
+
+          -- Detect conflict markers
+          if line:match("^<<<<<<<") then
+            in_conflict = true
+            conflict_type = "current"
+            vim.api.nvim_buf_add_highlight(buf, ns, "GitConflictMarker", line_num, 0, -1)
+          elseif line:match("^|||||||") then
+            conflict_type = "ancestor"
+            vim.api.nvim_buf_add_highlight(buf, ns, "GitConflictMarker", line_num, 0, -1)
+          elseif line:match("^=======") then
+            conflict_type = "incoming"
+            vim.api.nvim_buf_add_highlight(buf, ns, "GitConflictMarker", line_num, 0, -1)
+          elseif line:match("^>>>>>>>") then
+            in_conflict = false
+            vim.api.nvim_buf_add_highlight(buf, ns, "GitConflictMarker", line_num, 0, -1)
+          elseif in_conflict and conflict_type then
+            -- Highlight the content between markers
+            if conflict_type == "current" then
+              vim.api.nvim_buf_add_highlight(buf, ns, "GitConflictCurrent", line_num, 0, -1)
+            elseif conflict_type == "incoming" then
+              vim.api.nvim_buf_add_highlight(buf, ns, "GitConflictIncoming", line_num, 0, -1)
+            elseif conflict_type == "ancestor" then
+              vim.api.nvim_buf_add_highlight(buf, ns, "GitConflictAncestor", line_num, 0, -1)
+            end
+          end
+        end
+      end
+
+      -- Auto-detect conflicts on buffer read and write
+      vim.api.nvim_create_autocmd({"BufReadPost", "BufWritePost", "TextChanged", "TextChangedI"}, {
+        group = conflict_group,
+        callback = function()
+          local buf = vim.api.nvim_get_current_buf()
+          local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+          -- Check if buffer contains conflict markers
+          for _, line in ipairs(lines) do
+            if line:match("^<<<<<<<") or line:match("^>>>>>>>") or line:match("^=======") then
+              highlight_conflict_markers()
+              return
+            end
+          end
+        end
+      })
+
+      -- Command to manually trigger conflict marker highlighting
+      vim.api.nvim_create_user_command("GitConflictHighlight", highlight_conflict_markers,
+        { desc = "Highlight git conflict markers in current buffer" })
     end,
   },
 
@@ -2055,7 +2127,22 @@ require("lazy").setup({
           'stevearc/dressing.nvim', -- optional for vim.ui.select
       },
       config = true,
-  }
+  },
+
+  -- Git integration with vim-fugitive
+  {
+    "tpope/vim-fugitive",
+    cmd = { "Git", "G", "Gdiffsplit", "Gvdiffsplit", "Gread", "Gwrite", "Ggrep", "GMove", "GDelete", "GBrowse" },
+    keys = {
+      { "<leader>Gs", "<cmd>Git<cr>", desc = "Git status" },
+      { "<leader>Gc", "<cmd>Git commit<cr>", desc = "Git commit" },
+      { "<leader>Gp", "<cmd>Git push<cr>", desc = "Git push" },
+      { "<leader>Gl", "<cmd>Git pull<cr>", desc = "Git pull" },
+      { "<leader>Gb", "<cmd>Git blame<cr>", desc = "Git blame" },
+      { "<leader>Gd", "<cmd>Gdiffsplit<cr>", desc = "Git diff split" },
+      { "<leader>Gm", "<cmd>Git mergetool<cr>", desc = "Git merge tool" },
+    },
+  },
 
 }, {
   checker = { enabled = false }, -- Disable update checking
@@ -2071,6 +2158,6 @@ require("lazy").setup({
     },
   },
   install = {
-    colorscheme = { "tokyonight-storm" },
+    colorscheme = { "gotham" },
   },
 })
