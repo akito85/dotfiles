@@ -105,20 +105,16 @@ require("lazy").setup({
         },
       })
 
-      -- Modern LSP handlers with updated API
-      vim.lsp.handlers['textDocument/hover'] = vim.lsp.with(
-        vim.lsp.handlers.hover, {
-          border = 'rounded',
-          title = 'Hover',
-        }
-      )
+      -- LSP handlers with explicit config merge (vim.lsp.with deprecated in 0.12)
+      vim.lsp.handlers['textDocument/hover'] = function(err, result, ctx, config)
+        return vim.lsp.handlers.hover(err, result, ctx,
+          vim.tbl_extend('force', config or {}, { border = 'rounded', title = 'Hover' }))
+      end
 
-      vim.lsp.handlers['textDocument/signatureHelp'] = vim.lsp.with(
-        vim.lsp.handlers.signature_help, {
-          border = 'rounded',
-          title = 'Signature Help',
-        }
-      )
+      vim.lsp.handlers['textDocument/signatureHelp'] = function(err, result, ctx, config)
+        return vim.lsp.handlers.signature_help(err, result, ctx,
+          vim.tbl_extend('force', config or {}, { border = 'rounded', title = 'Signature Help' }))
+      end
 
       -- Common server setup function using new vim.lsp.config API
       local function setup_server(server_name, opts)
@@ -1919,7 +1915,10 @@ require("lazy").setup({
 
         highlight = {
           enable = true,
-          disable = disable_for_large_files,
+          disable = function(lang, buf)
+            if lang == "bash" then return true end
+            return disable_for_large_files(lang, buf)
+          end,
           additional_vim_regex_highlighting = false,
         },
 
