@@ -965,7 +965,7 @@ require("lazy").setup({
       
       -- Optional but highly recommended for enhanced features:
       {
-        'akinsho/flutter-tools.nvim', -- Updated package name
+        'nvim-flutter/flutter-tools.nvim',
         lazy = false,
         ft = { 'dart' },
         dependencies = {
@@ -1053,11 +1053,6 @@ require("lazy").setup({
                 vim.keymap.set('n', '<leader>Fl', '<cmd>FlutterLogClear<CR>', opts)
               end,
               capabilities = require('cmp_nvim_lsp').default_capabilities(),
-              -- OR you can specify a function to deactivate or change or control how the config is created
-              capabilities = function(config)
-                config.specificThingIDontWant = false
-                return config
-              end,
               -- see the link below for details on each option:
               -- https://github.com/dart-lang/sdk/blob/master/pkg/analysis_server/tool/lsp_spec/README.md#client-workspace-configuration
               settings = {
@@ -1347,7 +1342,7 @@ require("lazy").setup({
         callback = function()
           -- Only lint if file is not too large (same threshold as LSP)
           local max_filesize = 10 * 1024 * 1024 -- 10MB
-          local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(0))
+          local ok, stats = pcall(vim.uv.fs_stat, vim.api.nvim_buf_get_name(0))
           if ok and stats and stats.size > max_filesize then
             return
           end
@@ -1618,7 +1613,7 @@ require("lazy").setup({
             handler = function(file_path)
               -- Check if current buffer has unsaved changes
               local current_buf = vim.api.nvim_get_current_buf()
-              local is_modified = vim.api.nvim_buf_get_option(current_buf, 'modified')
+              local is_modified = vim.bo[current_buf].modified
 
               -- Only force edit if buffer is not modified
               if not is_modified then
@@ -1727,9 +1722,7 @@ require("lazy").setup({
         pattern = "*", -- Added explicit pattern
         callback = function(ev)
           local max_filesize = vim.g.LargeFile * 1024 * 1024 -- Convert MB to bytes
-          -- FIXED: Use vim.uv or vim.loop for fs_stat
-          local stat = vim.uv and vim.uv.fs_stat or vim.loop.fs_stat
-          local ok, stats = pcall(stat, ev.match)
+          local ok, stats = pcall(vim.uv.fs_stat, ev.match)
           if ok and stats and (stats.size > max_filesize or stats.type == "directory") then
             vim.b.gitgutter_enabled = 0
           end
@@ -1898,8 +1891,7 @@ require("lazy").setup({
         local name = vim.api.nvim_buf_get_name(buf or 0)
         if name == "" then return 0 end
         
-        local stat = vim.uv and vim.uv.fs_stat or vim.loop.fs_stat
-        local ok, stats = pcall(stat, name)
+        local ok, stats = pcall(vim.uv.fs_stat, name)
         if ok and stats then
           return stats.size or 0
         end
@@ -2118,17 +2110,6 @@ require("lazy").setup({
   { "nvim-tree/nvim-web-devicons", lazy = true },
   { "MunifTanjim/nui.nvim", lazy = true },
 
-  -- Flutter specific configuration
-  {
-      'nvim-flutter/flutter-tools.nvim',
-      lazy = false,
-      dependencies = {
-          'nvim-lua/plenary.nvim',
-          'stevearc/dressing.nvim', -- optional for vim.ui.select
-      },
-      config = true,
-  },
-
   -- Git integration with vim-fugitive
   {
     "tpope/vim-fugitive",
@@ -2145,7 +2126,10 @@ require("lazy").setup({
   },
 
 }, {
-  checker = { enabled = false }, -- Disable update checking
+  checker = { enabled = false },
+  rocks = {
+    enabled = false,
+  },
   performance = {
     rtp = {
       disabled_plugins = {

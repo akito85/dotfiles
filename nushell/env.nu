@@ -1,29 +1,23 @@
-# env.nu
-#
-# Installed by:
-# version = "0.102.0"
-#
-# Previously, environment variables were typically configured in `env.nu`.
-# In general, most configuration can and should be performed in `config.nu`
-# or one of the autoload directories.
-#
-# This file is generated for backwards compatibility for now.
-# It is loaded before config.nu and login.nu
-#
-# See https://www.nushell.sh/book/configuration.html
-#
-# Also see `help config env` for more options.
-#
-# You can remove these comments if you want or leave
-# them for future reference.
+# Nushell Environment Configuration
 
-# x-cmd
-use '/home/akito/.x-cmd.root/local/data/nu/rc.nu' *; source '/home/akito/.x-cmd.root/local/data/nu/advise.nu'; # boot up x-cmd.
+# Fast Node Manager (fnm) environment
+$env.FNM_DIR = $"($env.HOME)/.local/share/fnm"
+if (which fnm | is-not-empty) {
+    ^fnm env --shell bash | lines | parse "{name}={value}" | transpose -r | into record | load-env
+}
 
-# starship
+# SDKMAN environment
+$env.SDKMAN_DIR = $"($env.HOME)/.sdkman"
+
+# PATH additions - ensure all necessary bin directories are in PATH
+$env.PATH = ($env.PATH | split row (char esep)
+    | prepend "/opt/homebrew/bin"
+    | prepend "/opt/homebrew/sbin"
+    | prepend $"($env.HOME)/.cargo/bin"
+    | prepend $"($env.HOME)/.local/bin")
+
+# Carapace completions
+# Bridges completions from zsh/fish/bash for commands not yet natively supported
+$env.CARAPACE_BRIDGES = "zsh,fish,bash,inshellisense"
 mkdir ($nu.data-dir | path join "vendor/autoload")
-starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")
-
-
-# zoxide
-zoxide init nushell | save -f /home/akito/.config/nushell/includes/zoxide.nu
+carapace _carapace nushell | save --force ($nu.data-dir | path join "vendor/autoload/carapace.nu")
